@@ -1,0 +1,73 @@
+Data: StatsBomb open data, competition 43, season 106
+All non-penalty shots with freeze frames: 1430 (152 goals)
+VLM sample: 300 shots (42 goals), observed goal rate 0.140
+VLM: anthropic/claude-sonnet-5-5, zero-shot, context=image only
+
+model              AUC    Brier  LogLoss   MeanXG
+vlm_xg           0.683   0.1202   0.4061    0.085
+sb_xg            0.793   0.0989   0.3378    0.100
+baseline_xg      0.768   0.1050   0.3494    0.108
+
+Brier(VLM) - Brier(StatsBomb) = +0.0214  (95% bootstrap CI +0.0089 to +0.0355)
+Brier(VLM) - Brier(baseline)  = +0.0152  (95% bootstrap CI +0.0041 to +0.0277)
+Spearman rho, VLM vs StatsBomb xG: 0.731
+Mean gap (VLM - StatsBomb): -0.015; mean absolute gap: 0.061
+
+Disagreement by body_part:
+              n  goals    vlm  statsbomb  mean_gap
+body_part                                         
+Head         63      7  0.143      0.098     0.046
+Left Foot    93     15  0.062      0.086    -0.023
+Other         3      0  0.240      0.379    -0.139
+Right Foot  141     20  0.071      0.104    -0.033
+
+Disagreement by play_pattern:
+                  n  goals    vlm  statsbomb  mean_gap
+play_pattern                                          
+From Corner      52      5  0.109      0.100     0.009
+From Counter     10      3  0.112      0.235    -0.123
+From Free Kick   58      7  0.074      0.060     0.013
+From Goal Kick   18      5  0.073      0.085    -0.012
+From Keeper       3      0  0.080      0.140    -0.060
+From Kick Off     2      0  0.032      0.034    -0.002
+From Throw In    55      6  0.080      0.076     0.005
+Regular Play    102     16  0.083      0.125    -0.042
+
+Disagreement by cone_bin:
+            n  goals    vlm  statsbomb  mean_gap
+cone_bin                                        
+0           8      5  0.158      0.489    -0.332
+1         137     26  0.107      0.133    -0.025
+2         104      8  0.067      0.056     0.011
+3+         51      3  0.052      0.040     0.012
+
+Disagreement by dist_bin:
+           n  goals    vlm  statsbomb  mean_gap
+dist_bin                                       
+<6         8      4  0.181      0.480    -0.298
+6-12      77     14  0.146      0.168    -0.022
+12-18     81     18  0.096      0.101    -0.006
+18-25     69      4  0.048      0.049    -0.002
+25+       65      2  0.027      0.024     0.004
+
+Largest VLM over-estimates:
+                             shot_id  goal  sb_xg  vlm_xg   gap  body_part  distance  defenders_in_cone                                                                                                                                                                                                                               vlm_reason
+9be1b301-9784-4f2b-b709-d2d4dec0d578     0  0.050    0.35 0.300  Left Foot    18.531                  1                                              Shooter is central inside the six-yard box area, very close to goal at a slight angle, but a defender is right on top of the shot and the keeper is close, so the chance is partly blocked.
+72907c83-f8eb-421f-aa75-3b2d4c96d747     0  0.067    0.35 0.283       Head     9.513                  2 Shooter is central about 6-8 yards out near the penalty spot, close to goal, but surrounded by several defenders, with one directly behind the shooter, which likely blocks or pressures the shot, though the goalkeeper is on the line.
+8aafb6ab-26fa-4ccb-87b7-a9c4e9aae35b     0  0.047    0.30 0.253       Head    10.542                  1                                  The shooter is inside the six-yard box, very close to goal and central, but several defenders are right around and the goalkeeper is nearby, so the angle is tight and the shot likely to be contested.
+5d9a7dee-a394-45bd-a788-6791bcb46e98     0  0.055    0.30 0.245       Head    10.008                  1                                                                                        Shot from very close range inside the six-yard box, but a crowd of defenders and the goalkeeper are right on the line, so many blocks are likely.
+a937340c-4952-453c-9606-d316b920cf67     0  0.061    0.30 0.239       Head     8.828                  2                                                           Shot from close range inside the six-yard box near the penalty spot line, but surrounded by many defenders who will likely block or crowd the shot, with the goalkeeper close.
+81bfba47-f671-4b85-adc5-fb8fc77f87b0     0  0.075    0.30 0.225       Head     8.329                  5                                                        Shot from very close range inside the six-yard box, but the goalkeeper and several defenders are packed around the shooter, so the angle is crowded and likely partially blocked.
+8d9322d1-dee7-4ea0-9402-6122d500dcfe     0  0.138    0.35 0.212       Head     8.127                  1                                                 Shooter is very close to goal, inside the six-yard box and central, but heavily crowded by several defenders and teammates, which blocks the shot and raises the chance of a deflection.
+4e3dddd6-1001-4bca-a950-fe89f59cea25     1  0.066    0.27 0.204 Right Foot    13.042                  1                                             Shot from close range near the edge of the six-yard box with a good angle, but defenders are tightly crowding the shooter and the goalkeeper is close, so it is likely contested or blocked.
+
+Largest VLM under-estimates:
+                             shot_id  goal  sb_xg  vlm_xg    gap  body_part  distance  defenders_in_cone                                                                                                                                                                                     vlm_reason
+be17203f-f93a-4a28-9704-0d0783b29be2     1  0.897    0.20 -0.697 Right Foot     6.403                  0                           Shooter is close in the six-yard box area, central, but heavily crowded by several defenders and the goalkeeper near the goal, with a tight angle blocked by bodies.
+70fe857d-6f28-4b38-8ad7-a655328ec176     1  0.727    0.07 -0.657 Right Foot     6.401                  1               The shooter is very close to the goal line, just left of the near post, so the angle is extremely tight, and the keeper plus several defenders are in the box blocking the shot.
+2b86a444-5696-4c2d-ba7f-837ec9756684     1  0.669    0.07 -0.599 Right Foot     4.780                  0                                          The shooter is right on the goal line beside the near post with a very tight angle, and a crowd of defenders and the goalkeeper is blocking the shot.
+4b8db9ec-fbb1-485b-b348-d8bb3aecbf07     1  0.779    0.24 -0.539 Right Foot     9.534                  0                                                                   Central shot from about 8 m with the keeper off to one side, but several defenders are close and could block or pressure it.
+d53ccaf1-0307-4067-946b-d514978dfae2     1  0.791    0.30 -0.491 Right Foot     4.428                  0                Shot from inside the six-yard box right next to the goalkeeper gives a very close range, but several defenders crowd the area and the angle is tight, so the chance is reduced.
+37c91977-3d8e-42a7-8368-806c40c8e9fc     1  0.509    0.08 -0.429  Left Foot     6.083                  1                                                                   Very tight angle from beside the goal line at the six-yard box, with the goalkeeper adjacent and several defenders blocking.
+19a225eb-4436-4a53-a354-3b40dfa6ca31     1  0.711    0.30 -0.411       Head     3.360                  0 Shot from inside the six-yard box right next to the goal line with a very tight angle, but the keeper is close and several defenders are nearby, so it is a high-quality yet difficult chance.
+e19e6d23-1ae7-41f7-8523-ca44e192c002     1  0.440    0.07 -0.370  Left Foot     8.066                  1                                                           Very tight angle from beside the near post inside the six-yard box, with the keeper close and a defender blocking the shooting lane.

@@ -1,0 +1,73 @@
+Data: StatsBomb open data, competition 43, season 106
+All non-penalty shots with freeze frames: 1430 (152 goals)
+VLM sample: 300 shots (42 goals), observed goal rate 0.140
+VLM: ollama/gemma4:26b, zero-shot, context=image only
+
+model              AUC    Brier  LogLoss   MeanXG
+vlm_xg           0.597   0.1896   0.5707    0.379
+sb_xg            0.793   0.0989   0.3378    0.100
+baseline_xg      0.768   0.1050   0.3494    0.108
+
+Brier(VLM) - Brier(StatsBomb) = +0.0908  (95% bootstrap CI +0.0650 to +0.1180)
+Brier(VLM) - Brier(baseline)  = +0.0846  (95% bootstrap CI +0.0588 to +0.1110)
+Spearman rho, VLM vs StatsBomb xG: 0.208
+Mean gap (VLM - StatsBomb): +0.279; mean absolute gap: 0.296
+
+Disagreement by body_part:
+              n  goals    vlm  statsbomb  mean_gap
+body_part                                         
+Head         63      7  0.399      0.098     0.302
+Left Foot    93     15  0.362      0.086     0.276
+Other         3      0  0.450      0.379     0.071
+Right Foot  141     20  0.380      0.104     0.276
+
+Disagreement by play_pattern:
+                  n  goals    vlm  statsbomb  mean_gap
+play_pattern                                          
+From Corner      52      5  0.363      0.100     0.264
+From Counter     10      3  0.420      0.235     0.185
+From Free Kick   58      7  0.383      0.060     0.322
+From Goal Kick   18      5  0.406      0.085     0.320
+From Keeper       3      0  0.450      0.140     0.310
+From Kick Off     2      0  0.250      0.034     0.216
+From Throw In    55      6  0.363      0.076     0.287
+Regular Play    102     16  0.385      0.125     0.261
+
+Disagreement by cone_bin:
+            n  goals    vlm  statsbomb  mean_gap
+cone_bin                                        
+0           8      5  0.738      0.489     0.248
+1         137     26  0.386      0.133     0.254
+2         104      8  0.370      0.056     0.314
+3+         51      3  0.321      0.040     0.281
+
+Disagreement by dist_bin:
+           n  goals    vlm  statsbomb  mean_gap
+dist_bin                                       
+<6         8      4  0.575      0.480     0.095
+6-12      77     14  0.447      0.168     0.279
+12-18     81     18  0.367      0.101     0.266
+18-25     69      4  0.366      0.049     0.316
+25+       65      2  0.302      0.024     0.279
+
+Largest VLM over-estimates:
+                             shot_id  goal  sb_xg  vlm_xg   gap  body_part  distance  defenders_in_cone                                                                                                                         vlm_reason
+2df12147-20e3-409f-82da-ea198b3bd365     0  0.011    0.85 0.839       Head    14.600                  0                              The shooter has a clear, unobstructed shot from very close range with the goalkeeper out of position.
+d71bc1d5-1501-4fe6-9ae8-a490371ee93e     1  0.027    0.85 0.823 Right Foot    10.456                  1            The shot is taken from very close range, centrally, with the goalkeeper out of position and minimal defensive pressure.
+7dc143c8-2c30-4d5e-b227-682e509874b1     0  0.037    0.85 0.813  Left Foot    11.609                  0                              The shooter has a clear, unobstructed shot from very close range with the goalkeeper out of position.
+1ec1a0e0-f57f-4390-879a-872cdc7be137     0  0.047    0.85 0.803 Right Foot    19.261                  3 The shooter has a clear, high-quality shot from very close range with minimal defensive obstruction between the ball and the goal.
+60937c94-36e7-4cc1-9041-1be1cc64f688     0  0.055    0.85 0.795 Right Foot     9.774                  1                               The shooter has a clear, high-quality shot from very close range with minimal defensive obstruction.
+c6dfbf3c-fee3-4529-bf1c-88c912c73ca2     0  0.011    0.75 0.739 Right Foot    19.560                  1 The shooter has a clear, high-quality shot from very close range with minimal defensive obstruction between the ball and the goal.
+95582d85-7eed-4aeb-bbe6-2b1a429b6295     0  0.018    0.75 0.732 Right Foot     9.227                  0                          The shot is taken from very close range with a clear sight of the goal and minimal defensive obstruction.
+9c16738b-cf6c-4669-a694-276a322ff6d8     0  0.146    0.85 0.704 Right Foot     6.297                  1                               The shooter has a clear, high-quality shot from very close range with minimal defensive obstruction.
+
+Largest VLM under-estimates:
+                             shot_id  goal  sb_xg  vlm_xg    gap  body_part  distance  defenders_in_cone                                                                                                                                                                 vlm_reason
+70fe857d-6f28-4b38-8ad7-a655328ec176     1  0.727    0.15 -0.577 Right Foot     6.401                  1                                                   The shot is taken from a central position but is heavily contested by multiple defenders in close proximity to the goal.
+ed57db75-dfc9-4bf5-8f72-c85a80bb9829     0  0.455    0.15 -0.305  Left Foot     6.824                  1                                        The shot is taken from a relatively central position but is heavily contested by multiple defenders in close proximity to the goal.
+9ec02244-15d4-4d47-9f4a-efabc72118a2     1  0.422    0.15 -0.272 Right Foot    12.572                  1                                        The shot is taken from a relatively central position but is heavily contested by multiple defenders in close proximity to the goal.
+76686ee8-2674-4762-a7d0-1b9dc6fb4d10     0  0.517    0.35 -0.167      Other     4.808                  1 The shot is taken from a relatively central position within the penalty area, but there are multiple defenders close to the shooter and the goalkeeper is well-positioned.
+be17203f-f93a-4a28-9704-0d0783b29be2     1  0.897    0.75 -0.147 Right Foot     6.403                  0                                              The shot is taken from very close range with a clear sight of the goal, despite the presence of defenders and the goalkeeper.
+f1ea3de4-8ca4-4ce0-8aeb-e18c3681742d     0  0.295    0.15 -0.145  Left Foot    11.386                  2                                        The shot is taken from a relatively central position but is heavily contested by multiple defenders in close proximity to the goal.
+d53ccaf1-0307-4067-946b-d514978dfae2     1  0.791    0.65 -0.141 Right Foot     4.428                  0                                                      The shot is taken from a very close central position with a clear sight of the goal, despite some defensive pressure.
+6f976433-79ae-46c6-8442-5619a2616918     0  0.159    0.05 -0.109 Right Foot    13.788                  1                                                                            The shot is taken from a very tight angle with multiple defenders closely contesting the space.
