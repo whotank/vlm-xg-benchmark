@@ -19,12 +19,14 @@ Comparisons: StatsBomb xG and a logistic baseline (distance, angle, header, defe
 trained with match-grouped cross-validation.
 
 ## Reproduce
+```bash
 pip install statsbombpy mplsoccer scikit-learn scipy anthropic google-genai requests
-
 python xg_vlm_pilot.py --backend ollama --model gemma4:26b --n 300
 python xg_vlm_pilot.py --backend anthropic --model claude-sonnet-5-5 --n 300
 python xg_vlm_pilot.py --backend anthropic --model claude-opus-5-5 --n 300
 python xg_vlm_pilot.py --backend gemini --model gemini-3.8-flash --n 300
+python compare_models.py
+```
 
 API keys are read from the ANTHROPIC_API_KEY and GEMINI_API_KEY environment variables.
 
@@ -41,5 +43,5 @@ API keys are read from the ANTHROPIC_API_KEY and GEMINI_API_KEY environment vari
 - `docs/`: abstract, literature review, collaboration brief
 
 ## Authors
-[Your name], Northeastern University
-[Co-author name], [Institution]
+- Houman Kamran Habibkhani, University of the Pacific
+- Hootan Kamran Habibkhani, Northeastern University
