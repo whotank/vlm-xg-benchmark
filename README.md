@@ -1,4 +1,4 @@
-# Seeing Is Not Scoring: Benchmarking Vision-Language Models Against Expected Goals
+# Can Vision-Language Models Estimate Expected Goals? A Benchmark Against Statistical xG
 
 Code and results for our MIT Sloan Sports Analytics Conference 2027 research abstract.
 
@@ -29,10 +29,16 @@ python xg_vlm_pilot.py --backend gemini --model gemini-3.8-flash --n 300
 API keys are read from the ANTHROPIC_API_KEY and GEMINI_API_KEY environment variables.
 
 ## Files
-- `xg_vlm_pilot.py`: full pipeline (data loading, rendering, VLM queries, evaluation)
-- `*_summary.txt`: per-model results
-- `*_shots.csv`: per-shot predictions, StatsBomb xG, baseline xG, and model rationales
-- `calibration_all_models.png`: calibration of all models vs StatsBomb xG
+- `xg_vlm_pilot.py`: full pipeline (data loading, rendering, VLM queries, evaluation); one run per model
+- `compare_models.py`: comparison of all models on common shots, bootstrap CIs, distance bands, Figure 1
+- `CLAUDE.md`: project context, results table, and known gotchas
+- `results/<model>/` (`gemma4_26b`, `claude_sonnet_5_5`, `claude_opus_5_5`, `gemini_3.8_flash`):
+  - `summary.txt`: per-model results
+  - `shots.csv`: per-shot predictions, StatsBomb xG, baseline xG, and model rationales
+  - `vlm_cache.jsonl`: cached raw model answers (reruns only query missing shots)
+- `results/figure1.png`: Figure 1 (predicted xG by distance band, and calibration)
+- `results/calibration_all_models.png`: reliability curves for all models vs StatsBomb xG
+- `docs/`: abstract, literature review, collaboration brief
 
 ## Authors
 [Your name], Northeastern University

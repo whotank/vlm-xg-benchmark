@@ -1,7 +1,18 @@
 """
 Pilot: Can a vision-language model (VLM) estimate expected goals (xG) from a shot image?
-Data: StatsBomb open data (default: FIFA World Cup 2022, competition 43, season 106)
-Backends: anthropic | ollama | gemini
+
+Data:   StatsBomb open data (default: FIFA World Cup 2022, competition 43, season 106)
+Steps:  1) load non-penalty shots with freeze frames
+        2) render each freeze frame as a half-pitch image
+        3) ask a VLM for a goal probability (zero-shot)
+        4) compare VLM vs StatsBomb xG vs a logistic baseline (distance, angle, header, defenders in cone)
+        5) report AUC / Brier / log loss, bootstrap CI, calibration plot, and where the VLM disagrees
+
+Install:  pip install statsbombpy mplsoccer scikit-learn scipy anthropic requests
+Run:      export ANTHROPIC_API_KEY=...        (or use --backend ollama with a local Gemma model)
+          python xg_vlm_pilot.py --n 20       # quick test first
+          python xg_vlm_pilot.py --n 300      # pilot run
+Outputs:  results/shots.csv, results/summary.txt, results/calibration.png, results/images/*.png
 """
 import os, json, base64, re, math, argparse, warnings
 import numpy as np
@@ -17,9 +28,9 @@ from sklearn.metrics import brier_score_loss, log_loss, roc_auc_score
 from scipy.stats import spearmanr
 
 warnings.filterwarnings("ignore")
-GOAL, POST_L, POST_R = (120.0, 40.0), (120.0, 36.0), (120.0, 44.0)
-OUT = "results"
-IMG_DIR = os.path.join("results", "images")
+GOAL, POST_L, POST_R = (120.0, 40.0), (120.0, 36.0), (120.0, 44.0)  # StatsBomb pitch: 120 x 80
+OUT = "results"                                # set per model in main()
+IMG_DIR = os.path.join("results", "images")    # rendered images are shared across models
 CACHE = None
 
 PROMPT = """You are a professional football (soccer) analyst.
@@ -31,6 +42,7 @@ assuming an average professional finisher.
 Reply with JSON only: {{"xg": <number between 0 and 1>, "reason": "<one short sentence>"}}"""
 
 
+# ---------------------------------------------------------------- features
 def geometry(x, y):
     dist = math.hypot(GOAL[0] - x, GOAL[1] - y)
     a = math.atan2(POST_L[1] - y, POST_L[0] - x)
@@ -69,6 +81,7 @@ def load_shots(comp, season):
     return pd.DataFrame(rows)
 
 
+# ---------------------------------------------------------------- rendering
 def render(row, path):
     pitch = VerticalPitch(half=True, pitch_type="statsbomb", line_color="black")
     fig, ax = pitch.draw(figsize=(5, 5))
@@ -86,6 +99,7 @@ def render(row, path):
     plt.close(fig)
 
 
+# ---------------------------------------------------------------- VLM backends
 _client = None
 
 
@@ -125,7 +139,7 @@ def ask_gemini(img_b64, prompt, model, retries=6):
             return resp.text or ""
         except errors.APIError as e:
             if getattr(e, "code", None) in (429, 500, 503) and attempt < retries - 1:
-                wait = min(60, 4 * 2 ** attempt)
+                wait = min(60, 4 * 2 ** attempt)   # 4, 8, 16, 32, 60 s
                 print(f"  busy ({e.code}), retrying in {wait}s")
                 time.sleep(wait)
                 continue
@@ -143,6 +157,7 @@ def parse(txt):
     return float(np.clip(xg, 0.001, 0.999)), (r.group(1) if r else "")
 
 
+# ---------------------------------------------------------------- evaluation
 def scores(y, p):
     p = np.clip(p, 1e-3, 1 - 1e-3)
     return dict(auc=roc_auc_score(y, p), brier=brier_score_loss(y, p),
@@ -166,31 +181,39 @@ def calibration_plot(df, cols, path, bins=8):
         q = pd.qcut(df[c], q=bins, duplicates="drop")
         g = df.groupby(q, observed=True).agg(pred=(c, "mean"), obs=("goal", "mean"))
         plt.plot(g.pred, g.obs, "o-", label=c)
-    plt.xlabel("Mean predicted xG"); plt.ylabel("Observed goal rate")
-    plt.legend(); plt.title("Reliability curve"); plt.tight_layout()
-    plt.savefig(path, dpi=130); plt.close()
+    plt.xlabel("Mean predicted xG")
+    plt.ylabel("Observed goal rate")
+    plt.legend()
+    plt.title("Reliability curve")
+    plt.tight_layout()
+    plt.savefig(path, dpi=130)
+    plt.close()
 
 
+# ---------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--comp", type=int, default=43)
     ap.add_argument("--season", type=int, default=106)
-    ap.add_argument("--n", type=int, default=300)
+    ap.add_argument("--n", type=int, default=300, help="shots sent to the VLM")
     ap.add_argument("--backend", choices=["anthropic", "ollama", "gemini"], default="anthropic")
-    ap.add_argument("--model", default="claude-sonnet-5-5")
-    ap.add_argument("--context", action="store_true")
+    ap.add_argument("--model", default="claude-sonnet-5-5",
+                    help="e.g. claude-sonnet-5-5, gemini-3.7-flash, or a local tag like gemma4:26b")
+    ap.add_argument("--context", action="store_true", help="also tell the VLM the body part")
     ap.add_argument("--seed", type=int, default=7)
     a = ap.parse_args()
     global OUT, CACHE
     slug = re.sub(r"[^A-Za-z0-9.]+", "_", a.model) + ("_context" if a.context else "")
     OUT = os.path.join("results", slug)
     CACHE = os.path.join(OUT, "vlm_cache.jsonl")
-    os.makedirs(OUT, exist_ok=True); os.makedirs(IMG_DIR, exist_ok=True)
+    os.makedirs(OUT, exist_ok=True)
+    os.makedirs(IMG_DIR, exist_ok=True)
 
     print("Loading StatsBomb shots...")
     shots = load_shots(a.comp, a.season)
     print(f"{len(shots)} non-penalty shots with freeze frames, {shots.goal.sum()} goals")
 
+    # Transparent baseline, out-of-fold predictions grouped by match (no leakage)
     feats = ["distance", "angle", "header", "defenders_in_cone"]
     shots["baseline_xg"] = cross_val_predict(
         LogisticRegression(max_iter=1000), shots[feats], shots.goal,
@@ -201,7 +224,8 @@ def main():
     if os.path.exists(CACHE):
         with open(CACHE) as f:
             for line in f:
-                d = json.loads(line); cache[d["shot_id"]] = d
+                d = json.loads(line)
+                cache[d["shot_id"]] = d
     ask = {"anthropic": ask_anthropic, "ollama": ask_ollama, "gemini": ask_gemini}[a.backend]
 
     vlm_xg, reasons = [], []
@@ -218,23 +242,28 @@ def main():
             except Exception as e:
                 print(f"  shot {i}: error {e} (not cached; rerun to retry)")
                 import time; time.sleep(5)
-                vlm_xg.append(np.nan); reasons.append(""); continue
+                vlm_xg.append(np.nan); reasons.append("")
+                continue
             xg, why = parse(txt)
             cache[row.shot_id] = dict(shot_id=row.shot_id, vlm_xg=xg, reason=why)
             with open(CACHE, "a") as f:
                 f.write(json.dumps(cache[row.shot_id]) + "\n")
-        vlm_xg.append(cache[row.shot_id]["vlm_xg"]); reasons.append(cache[row.shot_id]["reason"])
+        vlm_xg.append(cache[row.shot_id]["vlm_xg"])
+        reasons.append(cache[row.shot_id]["reason"])
         print(f"  VLM {i}/{len(sample)}", end="\r")
     print()
     sample["vlm_xg"], sample["vlm_reason"] = vlm_xg, reasons
     sample = sample.dropna(subset=["vlm_xg"])
     sample["gap"] = sample.vlm_xg - sample.sb_xg
 
-    L = [f"Data: StatsBomb open data, competition {a.comp}, season {a.season}",
-         f"All non-penalty shots with freeze frames: {len(shots)} ({shots.goal.sum()} goals)",
-         f"VLM sample: {len(sample)} shots ({sample.goal.sum()} goals), observed goal rate {sample.goal.mean():.3f}",
-         f"VLM: {a.backend}/{a.model}, zero-shot, context={'body part' if a.context else 'image only'}\n",
-         f"{'model':<14}{'AUC':>8}{'Brier':>9}{'LogLoss':>9}{'MeanXG':>9}"]
+    # ---- report
+    L = []
+    L.append(f"Data: StatsBomb open data, competition {a.comp}, season {a.season}")
+    L.append(f"All non-penalty shots with freeze frames: {len(shots)} ({shots.goal.sum()} goals)")
+    L.append(f"VLM sample: {len(sample)} shots ({sample.goal.sum()} goals), "
+             f"observed goal rate {sample.goal.mean():.3f}")
+    L.append(f"VLM: {a.backend}/{a.model}, zero-shot, context={'body part' if a.context else 'image only'}\n")
+    L.append(f"{'model':<14}{'AUC':>8}{'Brier':>9}{'LogLoss':>9}{'MeanXG':>9}")
     for c in ["vlm_xg", "sb_xg", "baseline_xg"]:
         s = scores(sample.goal, sample[c])
         L.append(f"{c:<14}{s['auc']:>8.3f}{s['brier']:>9.4f}{s['logloss']:>9.4f}{s['mean_pred']:>9.3f}")
@@ -242,16 +271,21 @@ def main():
     L.append(f"\nBrier(VLM) - Brier(StatsBomb) = {d:+.4f}  (95% bootstrap CI {ci[0]:+.4f} to {ci[1]:+.4f})")
     d2, ci2 = bootstrap_brier_diff(sample.goal, sample.vlm_xg, sample.baseline_xg)
     L.append(f"Brier(VLM) - Brier(baseline)  = {d2:+.4f}  (95% bootstrap CI {ci2[0]:+.4f} to {ci2[1]:+.4f})")
-    L.append(f"Spearman rho, VLM vs StatsBomb xG: {spearmanr(sample.vlm_xg, sample.sb_xg).correlation:.3f}")
-    L.append(f"Mean gap (VLM - StatsBomb): {sample.gap.mean():+.3f}; mean absolute gap: {sample.gap.abs().mean():.3f}\n")
+    rho = spearmanr(sample.vlm_xg, sample.sb_xg).correlation
+    L.append(f"Spearman rho, VLM vs StatsBomb xG: {rho:.3f}")
+    L.append(f"Mean gap (VLM - StatsBomb): {sample.gap.mean():+.3f}; "
+             f"mean absolute gap: {sample.gap.abs().mean():.3f}\n")
 
-    sample["cone_bin"] = pd.cut(sample.defenders_in_cone, [-1, 0, 1, 2, 99], labels=["0", "1", "2", "3+"])
-    sample["dist_bin"] = pd.cut(sample.distance, [0, 6, 12, 18, 25, 200], labels=["<6", "6-12", "12-18", "18-25", "25+"])
+    sample["cone_bin"] = pd.cut(sample.defenders_in_cone, [-1, 0, 1, 2, 99],
+                                labels=["0", "1", "2", "3+"])
+    sample["dist_bin"] = pd.cut(sample.distance, [0, 6, 12, 18, 25, 200],
+                                labels=["<6", "6-12", "12-18", "18-25", "25+"])
     for g in ["body_part", "play_pattern", "cone_bin", "dist_bin"]:
         t = sample.groupby(g, observed=True).agg(
             n=("goal", "size"), goals=("goal", "sum"), vlm=("vlm_xg", "mean"),
             statsbomb=("sb_xg", "mean"), mean_gap=("gap", "mean")).round(3)
         L.append(f"Disagreement by {g}:\n{t.to_string()}\n")
+
     cols = ["shot_id", "goal", "sb_xg", "vlm_xg", "gap", "body_part", "distance", "defenders_in_cone", "vlm_reason"]
     L.append("Largest VLM over-estimates:\n" + sample.nlargest(8, "gap")[cols].round(3).to_string(index=False))
     L.append("\nLargest VLM under-estimates:\n" + sample.nsmallest(8, "gap")[cols].round(3).to_string(index=False))
