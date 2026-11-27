@@ -84,6 +84,9 @@ Key findings:
   and Gemini 4 Neon (p = 0.05) are borderline. Opus 5.5, Hydrogen, Sonnet, Gemini 3.8 Flash and Gemma
   remain significantly worse than StatsBomb. "Not significantly worse" is not equivalence: the upper CI
   bounds still allow gaps of 0.012-0.019 Brier.
+- Carbon was picked as "best Gemini 4" on the same 298 shots. Paired, it beats Opus 5.5 (ΔBrier -0.006
+  [-0.012, -0.001], p = 0.02) and Hydrogen (-0.006, p = 0.006), but not Neon (-0.003, p = 0.14) or
+  GPT-6.2 Astra (-0.003, p = 0.37); treat the top three as one tier.
 - With match clustering, Gemini 3.8 Flash vs the baseline is no longer significant (abstract: +0.010
   [+0.001, +0.020] shot-level; now [-0.002, +0.021]).
 - Ranking (AUC) and level diverge: among models with AUC 0.72-0.74, mean predicted xG ranges from 0.101 (Neon)

@@ -918,6 +918,8 @@ def main():
     if a.backend == "anthropic" and not a.thinking_level:
         think = ("not set: no thinking or effort parameter sent, as in the original Opus/Sonnet runs "
                  "(Opus 5.5 always thinks at its default effort, medium; thinking counts toward max_tokens)")
+    elif a.backend == "ollama":
+        think = "off (think: false), as in the original Gemma run"
     else:
         think = a.thinking_level or "not set (provider default)"
     L.append(f"Settings: thinking/reasoning level = {think}; max output tokens = {cfg['max_output_tokens']}; "
