@@ -1,0 +1,53 @@
+{
+ "backend": "openai",
+ "model": "gpt-6.2-astra",
+ "shots": 0,
+ "example_set": null,
+ "example_ids": [],
+ "example_seed": null,
+ "context": false,
+ "thinking_level": "medium",
+ "max_output_tokens": "none",
+ "seed": 7,
+ "comp": 43,
+ "season": 106,
+ "prompt_sha": "b40f124d940c",
+ "invocations": [
+  {
+   "started": "2026-11-27T07:24:36+00:00",
+   "n": 2,
+   "workers": 2,
+   "stage": "optional: GPT-6.2 Astra zero-shot",
+   "versions": {
+    "anthropic": "2.14.0",
+    "google-genai": "3.6.1",
+    "openai": "3.60.0",
+    "matplotlib": "3.11.2",
+    "mplsoccer": "1.8.1",
+    "statsbombpy": "1.22.0"
+   },
+   "finished": "2026-11-27T07:24:44+00:00",
+   "status": "complete",
+   "elapsed_s": 8
+  },
+  {
+   "started": "2026-11-27T07:35:44+00:00",
+   "n": 300,
+   "workers": 6,
+   "stage": "optional: GPT-6.2 Astra zero-shot",
+   "versions": {
+    "anthropic": "2.14.0",
+    "google-genai": "3.6.1",
+    "openai": "3.60.0",
+    "matplotlib": "3.11.2",
+    "mplsoccer": "1.8.1",
+    "statsbombpy": "1.22.0"
+   },
+   "finished": "2026-11-27T07:39:34+00:00",
+   "status": "complete",
+   "elapsed_s": 230
+  }
+ ],
+ "stage": "optional: GPT-6.2 Astra zero-shot",
+ "n": 300
+}
