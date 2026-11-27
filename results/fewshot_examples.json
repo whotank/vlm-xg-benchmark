@@ -1,0 +1,168 @@
+{
+ "set": "A",
+ "seed": 1,
+ "created": "2026-11-27",
+ "pool": "1130 non-penalty shots with freeze frames not in the 300-shot test sample (shots.sample(n=300, random_state=7)); 110 goals",
+ "bands_yards": "pd.cut(distance, [0, 6, 12, 18, 25, 200]) -> <6, 6-12, 12-18, 18-25, 25+",
+ "rules": [
+  "k=1: one miss from 12-18 yd",
+  "k=5: k=1 + one per other band; one goal drawn uniformly from pool goals in those bands, misses elsewhere",
+  "k=10: k=5 + one more per band; one goal drawn uniformly from pool goals in bands without a goal, misses elsewhere (2 goals, 8 misses, two per band)",
+  "order: k=1 example, then k=5 additions shuffled, then k=10 additions shuffled (nested prefixes)",
+  "labels: actual outcome ('Outcome: GOAL' / 'Outcome: NO GOAL'), never xG"
+ ],
+ "k1": [
+  "6d498191-05f0-432c-8764-03aea4ef9fb8"
+ ],
+ "k5": [
+  "6d498191-05f0-432c-8764-03aea4ef9fb8",
+  "c56eba74-325b-4086-96fd-4e71009b673a",
+  "72e972ee-22e9-4eef-aaa9-04ebd7e55f92",
+  "092b9d73-6f23-477b-8896-81d04cff79a6",
+  "f36222e4-425a-4b60-90ce-ee0563d3a95d"
+ ],
+ "k10": [
+  "6d498191-05f0-432c-8764-03aea4ef9fb8",
+  "c56eba74-325b-4086-96fd-4e71009b673a",
+  "72e972ee-22e9-4eef-aaa9-04ebd7e55f92",
+  "092b9d73-6f23-477b-8896-81d04cff79a6",
+  "f36222e4-425a-4b60-90ce-ee0563d3a95d",
+  "61f19d48-a4a3-42f3-b777-0c87f7da2c47",
+  "48487024-2b14-4521-a46b-508418babbad",
+  "38d1ccce-102b-41a6-9661-a4f872c615e3",
+  "e4138641-20ea-47fb-8f63-4faea5b02279",
+  "7ce22041-277e-47f1-8a76-cdd4afc35782"
+ ],
+ "examples": [
+  {
+   "order": 1,
+   "shot_id": "6d498191-05f0-432c-8764-03aea4ef9fb8",
+   "match_id": 3869685,
+   "goal": 0,
+   "label": "Outcome: NO GOAL",
+   "band": "12-18",
+   "distance_yards": 17.74,
+   "body_part": "Right Foot",
+   "play_pattern": "Regular Play",
+   "statsbomb_xg": 0.1068,
+   "added_at_k": 1
+  },
+  {
+   "order": 2,
+   "shot_id": "c56eba74-325b-4086-96fd-4e71009b673a",
+   "match_id": 3857273,
+   "goal": 0,
+   "label": "Outcome: NO GOAL",
+   "band": "<6",
+   "distance_yards": 5.6,
+   "body_part": "Head",
+   "play_pattern": "Regular Play",
+   "statsbomb_xg": 0.221,
+   "added_at_k": 5
+  },
+  {
+   "order": 3,
+   "shot_id": "72e972ee-22e9-4eef-aaa9-04ebd7e55f92",
+   "match_id": 3857263,
+   "goal": 1,
+   "label": "Outcome: GOAL",
+   "band": "6-12",
+   "distance_yards": 8.87,
+   "body_part": "Right Foot",
+   "play_pattern": "From Goal Kick",
+   "statsbomb_xg": 0.3187,
+   "added_at_k": 5
+  },
+  {
+   "order": 4,
+   "shot_id": "092b9d73-6f23-477b-8896-81d04cff79a6",
+   "match_id": 3857258,
+   "goal": 0,
+   "label": "Outcome: NO GOAL",
+   "band": "25+",
+   "distance_yards": 30.38,
+   "body_part": "Right Foot",
+   "play_pattern": "Regular Play",
+   "statsbomb_xg": 0.0202,
+   "added_at_k": 5
+  },
+  {
+   "order": 5,
+   "shot_id": "f36222e4-425a-4b60-90ce-ee0563d3a95d",
+   "match_id": 3857269,
+   "goal": 0,
+   "label": "Outcome: NO GOAL",
+   "band": "18-25",
+   "distance_yards": 20.9,
+   "body_part": "Right Foot",
+   "play_pattern": "From Free Kick",
+   "statsbomb_xg": 0.0297,
+   "added_at_k": 5
+  },
+  {
+   "order": 6,
+   "shot_id": "61f19d48-a4a3-42f3-b777-0c87f7da2c47",
+   "match_id": 3857298,
+   "goal": 0,
+   "label": "Outcome: NO GOAL",
+   "band": "<6",
+   "distance_yards": 5.23,
+   "body_part": "Head",
+   "play_pattern": "From Corner",
+   "statsbomb_xg": 0.2074,
+   "added_at_k": 10
+  },
+  {
+   "order": 7,
+   "shot_id": "48487024-2b14-4521-a46b-508418babbad",
+   "match_id": 3857267,
+   "goal": 0,
+   "label": "Outcome: NO GOAL",
+   "band": "25+",
+   "distance_yards": 33.11,
+   "body_part": "Right Foot",
+   "play_pattern": "From Free Kick",
+   "statsbomb_xg": 0.0216,
+   "added_at_k": 10
+  },
+  {
+   "order": 8,
+   "shot_id": "38d1ccce-102b-41a6-9661-a4f872c615e3",
+   "match_id": 3857263,
+   "goal": 1,
+   "label": "Outcome: GOAL",
+   "band": "12-18",
+   "distance_yards": 15.04,
+   "body_part": "Right Foot",
+   "play_pattern": "From Counter",
+   "statsbomb_xg": 0.1644,
+   "added_at_k": 10
+  },
+  {
+   "order": 9,
+   "shot_id": "e4138641-20ea-47fb-8f63-4faea5b02279",
+   "match_id": 3857254,
+   "goal": 0,
+   "label": "Outcome: NO GOAL",
+   "band": "6-12",
+   "distance_yards": 10.89,
+   "body_part": "Head",
+   "play_pattern": "From Kick Off",
+   "statsbomb_xg": 0.1134,
+   "added_at_k": 10
+  },
+  {
+   "order": 10,
+   "shot_id": "7ce22041-277e-47f1-8a76-cdd4afc35782",
+   "match_id": 3857254,
+   "goal": 0,
+   "label": "Outcome: NO GOAL",
+   "band": "18-25",
+   "distance_yards": 21.04,
+   "body_part": "Left Foot",
+   "play_pattern": "From Keeper",
+   "statsbomb_xg": 0.0851,
+   "added_at_k": 10
+  }
+ ]
+}
