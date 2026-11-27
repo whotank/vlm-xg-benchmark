@@ -15,7 +15,8 @@ Outputs (written every run):
   results/distance_bands.csv / .md      mean predicted xG by distance band with CIs, observed rate with CIs
 Figures (only with --figures, because rewriting the PNGs changes their bytes even when the data has not):
   results/figure1.png                   Figure 1 of the abstract (the four original models), unchanged design
-  results/figure_zero_shot_all.png      same design for every zero-shot run
+  results/figure_frontier.png           same design for the best model of each API provider vs StatsBomb
+  results/figure_forest.png             AUC and Brier with match-clustered 95% CIs for every run
 
 Run after xg_vlm_pilot.py has produced results/<run>/shots.csv for each run:
   python compare_models.py              # tables only
@@ -63,6 +64,11 @@ def registry():
     return runs
 
 
+# Frontier figure: one model per API provider, validated 3-hue palette (dataviz reference slots 1-3,
+# all-pairs CVD and normal-vision checks pass on white); distinct markers carry identity too.
+FRONTIER = ["Claude Opus 5.5", "Gemini 4 Carbon", "GPT-6.2 Astra"]
+FRONTIER_COLORS = {"Claude Opus 5.5": "#257de0", "Gemini 4 Carbon": "#f47230", "GPT-6.2 Astra": "#00b894",
+                   "StatsBomb xG": "black"}
 COLORS = {"Gemma 4 (26B)": "#E69F00", "Claude Sonnet 5.5": "#56B4E9", "Claude Opus 5.5": "#0072B2",
           "Gemini 3.8 Flash": "#009E73", "Gemini 4 Carbon": "#CC79A7", "Gemini 4 Neon": "#D55E00",
           "Gemini 4 Hydrogen": "#F0E442", "GPT-6.2 Astra": "#999999", "StatsBomb xG": "black"}
@@ -299,7 +305,8 @@ def write_markdown(main, bands_df, y, B, n_matches, path_main, path_bands):
 
 
 # ---------------------------------------------------------------- figures
-def figure(base, preds, labels, path):
+def figure(base, preds, labels, path, colors=None, markers=None):
+    colors, markers = colors or COLORS, markers or {}
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -314,8 +321,8 @@ def figure(base, preds, labels, path):
     a.bar(x, obs.values, color="lightgray", width=0.6, label="Observed goal rate")
     for k, p in plot_preds.items():
         ref = k == "StatsBomb xG"
-        a.plot(x, p.groupby(bands, observed=True).mean().values, "o-", lw=2.5 if ref else 2, ms=6,
-               color=COLORS.get(k), ls="--" if ref else "-", label=k)
+        a.plot(x, p.groupby(bands, observed=True).mean().values, marker=markers.get(k, "o"),
+               lw=2.5 if ref else 2, ms=6, color=colors.get(k), ls="--" if ref else "-", label=k)
     a.set_xticks(x, [f"{l}\n(n={c})" for l, c in zip(obs.index, n.values)])
     a.set_xlabel("Shot distance (yards)"); a.set_ylabel("Mean predicted xG")
     a.set_title("(a) Predicted xG by shot distance", loc="left", fontweight="bold")
@@ -326,7 +333,8 @@ def figure(base, preds, labels, path):
         ref = k == "StatsBomb xG"
         s = pd.DataFrame({"p": p.values, "y": y})
         g = s.groupby(pd.qcut(s.p.rank(method="first"), 5), observed=True).agg(pred=("p", "mean"), obs=("y", "mean"))
-        b.plot(g.pred, g.obs, "o-", lw=2.5 if ref else 2, ms=6, color=COLORS.get(k), ls="--" if ref else "-", label=k)
+        b.plot(g.pred, g.obs, marker=markers.get(k, "o"), lw=2.5 if ref else 2, ms=6, color=colors.get(k),
+               ls="--" if ref else "-", label=k)
     b.set_xlim(0, 0.8); b.set_ylim(0, 0.6)
     b.set_xlabel("Mean predicted xG (quintile bins)"); b.set_ylabel("Observed goal rate")
     b.set_title("(b) Calibration (dotted line = perfect)", loc="left", fontweight="bold")
@@ -336,10 +344,53 @@ def figure(base, preds, labels, path):
     print(f"Saved {path}")
 
 
+def figure_forest(main_t, path):
+    """AUC and Brier with match-clustered 95% CIs, one row per run, grouped; references as vertical lines."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    names = {"zero-shot": "Zero-shot", "few-shot set A": "Few-shot, example set A", "few-shot set B":
+             "Few-shot, example set B", "context": "Body part given", "rerun": "Zero-shot, queried again"}
+    rows, ypos, heads, y = [], [], [], 0
+    for grp, g in main_t[main_t.group != "reference"].groupby("group", sort=False):
+        heads.append((y, names.get(grp, grp)))
+        y += 1
+        for _, r in g.iterrows():
+            rows.append(r)
+            ypos.append(y)
+            y += 1
+        y += 0.5
+    refs = main_t[main_t.group == "reference"].set_index("model")
+    plt.rcParams.update({"font.size": 9, "axes.spines.top": False, "axes.spines.right": False})
+    fig, axes = plt.subplots(1, 2, figsize=(10, 0.24 * y + 1.2), sharey=True)
+    for ax, m, title in [(axes[0], "auc", "AUC (higher is better)"), (axes[1], "brier", "Brier score (lower is better)")]:
+        for ref, ls in [("StatsBomb xG", "--"), ("Logistic baseline", ":")]:
+            ax.axvline(refs.loc[ref, m], color="#191919" if ref == "StatsBomb xG" else "#666666", ls=ls, lw=1.2,
+                       label=ref, zorder=1)
+        for r, yy in zip(rows, ypos):
+            ax.plot([r[f"{m}_lo"], r[f"{m}_hi"]], [yy, yy], color="#257de0", lw=1.5, solid_capstyle="round", zorder=2)
+            ax.plot(r[m], yy, "o", color="#257de0", ms=5, mec="white", mew=1, zorder=3)
+        ax.set_title(title, loc="left", fontweight="bold")
+        ax.grid(axis="x", color="#e6e6e6", lw=0.8)
+        ax.set_axisbelow(True)
+    axes[0].set_yticks(ypos, [r.model for r in rows])
+    for yy, h in heads:
+        axes[0].annotate(h, xy=(0, yy), xycoords=("axes fraction", "data"), xytext=(-8, 0),
+                         textcoords="offset points", ha="right", va="center", fontweight="bold", fontsize=9)
+    axes[0].invert_yaxis()
+    axes[1].legend(frameon=False, loc="lower right", fontsize=8)
+    fig.text(0.01, 0.005, "Dots: estimate; lines: 95% match-clustered bootstrap interval (2,000 resamples). "
+             "Vertical lines: StatsBomb xG (dashed) and the logistic baseline (dotted).", fontsize=7.5, color="#666666")
+    fig.tight_layout(rect=(0, 0.02, 1, 1))
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved {path}")
+
+
 # ---------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--figures", action="store_true", help="also redraw results/figure1.png and figure_zero_shot_all.png")
+    ap.add_argument("--figures", action="store_true", help="also redraw the figures (figure1, frontier, forest)")
     a = ap.parse_args()
 
     runs = load_runs()
@@ -375,8 +426,11 @@ def main():
 
     if a.figures:
         figure(base, preds, [m for m in ORIGINAL4 if m in preds], os.path.join(RES, "figure1.png"))
-        zs = [m for m, g in groups.items() if g == "zero-shot"]
-        figure(base, preds, zs, os.path.join(RES, "figure_zero_shot_all.png"))
+        front = [m for m in FRONTIER if m in preds]
+        if front:
+            figure(base, preds, front, os.path.join(RES, "figure_frontier.png"), colors=FRONTIER_COLORS,
+                   markers=dict(zip(front, ["o", "s", "^"])))
+        figure_forest(main_t, os.path.join(RES, "figure_forest.png"))
 
 
 if __name__ == "__main__":
