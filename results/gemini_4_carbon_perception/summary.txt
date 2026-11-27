@@ -1,8 +1,8 @@
 Task: perception (perception: read distance, angle, opponents in triangle from the image)
 Model: gemini/gemini-4-carbon; thinking/reasoning level: medium; max output tokens: none
-Sample: the xG runs' 300-shot sample (random_state=7); answered 2 of 2
-API usage: 2 calls, 0 failed; cost $0.0728
+Sample: the xG runs' 300-shot sample (random_state=7); answered 150 of 150
+API usage: 150 calls, 0 failed; cost $6.0506
 
-Distance read - true: mean -0.05 yd, mean absolute 0.06 yd
-Angle read - true: mean +0.1 deg, mean absolute 0.1 deg
-Opponents in triangle: exact 1.00, mean read - true +0.00
+Distance read - true: mean -0.03 yd, mean absolute 0.13 yd
+Angle read - true: mean +0.0 deg, mean absolute 0.3 deg
+Opponents in triangle: exact 0.83, mean read - true +0.11
