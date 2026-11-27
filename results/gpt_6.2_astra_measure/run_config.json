@@ -26,7 +26,10 @@
     "matplotlib": "3.11.2",
     "mplsoccer": "1.8.1",
     "statsbombpy": "1.22.0"
-   }
+   },
+   "finished": "2026-11-27T23:33:23+00:00",
+   "status": "complete",
+   "elapsed_s": 441
   }
  ],
  "stage": "review: measure first, then xG",

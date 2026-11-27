@@ -1,0 +1,78 @@
+Data: StatsBomb open data, competition 43, season 106
+All non-penalty shots with freeze frames: 1430 (152 goals)
+VLM sample: 300 shots (42 goals), observed goal rate 0.140
+VLM: openai/gpt-6.2-astra, zero-shot, context=image, measure first then xG
+Settings: thinking/reasoning level = medium; max output tokens = none; sampling = provider default
+OpenAI: Responses API, JSON mode (text.format=json_object)
+API usage, all invocations of this run: 300 calls, 0 failed, 0 accepted answers flagged incomplete; tokens: input 165300, cache writes 0, cached input 0, output 73325 (of which thinking 54756)
+Cost: $4.2554 at 8.0/40.0 USD per 1M input/output tokens (third-party prices from the project notes (web search); openai.com is unreachable from this environment, so unverified, 2026-11-27)
+
+model              AUC    Brier  LogLoss   MeanXG
+vlm_xg           0.731   0.1093   0.3652    0.150
+sb_xg            0.793   0.0989   0.3378    0.100
+baseline_xg      0.768   0.1050   0.3494    0.108
+
+Brier(VLM) - Brier(StatsBomb) = +0.0105  (95% shot-level bootstrap CI +0.0019 to +0.0186)
+Brier(VLM) - Brier(baseline)  = +0.0043  (95% shot-level bootstrap CI -0.0037 to +0.0120)
+(match-clustered intervals for all runs: results/main_table.md, from compare_models.py)
+Spearman rho, VLM vs StatsBomb xG: 0.840
+Mean gap (VLM - StatsBomb): +0.050; mean absolute gap: 0.069
+
+Disagreement by body_part:
+              n  goals    vlm  statsbomb  mean_gap
+body_part                                         
+Head         63      7  0.294      0.098     0.197
+Left Foot    93     15  0.094      0.086     0.009
+Other         3      0  0.507      0.379     0.128
+Right Foot  141     20  0.114      0.104     0.010
+
+Disagreement by play_pattern:
+                  n  goals    vlm  statsbomb  mean_gap
+play_pattern                                          
+From Corner      52      5  0.216      0.100     0.116
+From Counter     10      3  0.257      0.235     0.022
+From Free Kick   58      7  0.121      0.060     0.060
+From Goal Kick   18      5  0.127      0.085     0.042
+From Keeper       3      0  0.140      0.140     0.000
+From Kick Off     2      0  0.055      0.034     0.021
+From Throw In    55      6  0.119      0.076     0.044
+Regular Play    102     16  0.145      0.125     0.020
+
+Disagreement by cone_bin:
+            n  goals    vlm  statsbomb  mean_gap
+cone_bin                                        
+0           8      5  0.453      0.489    -0.037
+1         137     26  0.203      0.133     0.071
+2         104      8  0.101      0.056     0.045
+3+         51      3  0.058      0.040     0.019
+
+Disagreement by dist_bin:
+           n  goals    vlm  statsbomb  mean_gap
+dist_bin                                       
+<6         8      4  0.616      0.480     0.137
+6-12      77     14  0.307      0.168     0.139
+12-18     81     18  0.134      0.101     0.033
+18-25     69      4  0.054      0.049     0.004
+25+       65      2  0.028      0.024     0.004
+
+Largest VLM over-estimates:
+                             shot_id  goal  sb_xg  vlm_xg   gap body_part  distance  defenders_in_cone                                                                                                                        vlm_reason
+641eb264-6cf2-4608-a8b8-5c2405194994     0  0.271    0.61 0.339      Head     3.970                  1                        The shooter has a wide opening from under four yards, but the goalkeeper is directly in the shooting lane.
+78a794a1-c48c-4699-904a-5ca28cb9cc15     0  0.053    0.38 0.327      Head     9.904                  2           The shooter has a wide angle from close range, but the goalkeeper is set and a nearby defender can pressure the finish.
+47d48ad1-0bec-4db0-89fa-69f2064e2eee     0  0.084    0.40 0.316      Head     8.746                  1                The close range and wide shooting angle favor the finisher, with only the goalkeeper inside the shooting triangle.
+0e55900b-d2c5-4473-b159-aa752a27e8f7     0  0.144    0.46 0.316      Head     5.860                  1                            The close range and wide angle favor the shooter, but the goalkeeper is directly in the shooting lane.
+4c292e31-05ce-4f6f-a5d1-5e5d408b26e6     0  0.124    0.44 0.316      Head     6.912                  1 The close, central shot offers a wide goal angle, but the goalkeeper covers the centre and nearby defenders pressure the shooter.
+c9d3d537-8f05-4767-bf73-9a1f1a8a37cf     1  0.169    0.48 0.311      Head     7.001                  1                      The shooter has a wide view of goal from seven yards, with only the goalkeeper inside the shooting triangle.
+7bfd3322-79dd-41dc-8ea9-dd83156ee37a     0  0.043    0.34 0.297      Head    10.265                  2                 The shooter has a clear lane from close range, though the off-centre angle and a set goalkeeper limit the chance.
+8d9322d1-dee7-4ea0-9402-6122d500dcfe     0  0.138    0.43 0.292      Head     8.127                  1   The close range and wide angle favor the shooter, but the goalkeeper is centrally positioned and nearby defenders add pressure.
+
+Largest VLM under-estimates:
+                             shot_id  goal  sb_xg  vlm_xg    gap  body_part  distance  defenders_in_cone                                                                                                                                            vlm_reason
+4b8db9ec-fbb1-485b-b348-d8bb3aecbf07     1  0.779    0.52 -0.259 Right Foot     9.534                  0                                                The shooter has a clear, nearly central look from close range, with the goalkeeper offset to the left.
+c15dc8c4-2d91-435a-a390-11fd17a2bf2f     0  0.317    0.09 -0.227 Right Foot    18.420                  1                                      The shot is about 18 yards out at a narrow angle, with the goalkeeper close enough to block much of the opening.
+70fe857d-6f28-4b38-8ad7-a655328ec176     1  0.727    0.55 -0.177 Right Foot     6.401                  1                                          The shooter has a wide opening from close range, with only the goalkeeper between the shooter and the posts.
+eb01f465-08f6-4adf-a1b8-865127b41a97     1  0.408    0.24 -0.168  Left Foot    12.860                  1                         The shooter has a clear lane past the outfield defenders, but the goalkeeper is well positioned to cover the off-centre shot.
+1d0a8857-a8ba-461f-9e98-de32270f52c7     1  0.516    0.36 -0.156 Right Foot    10.481                  1                                       The shooter has a clear 38-degree opening from close range, but the goalkeeper is well positioned to narrow it.
+5f957f67-cdbc-4a3e-b3bc-89492062f995     0  0.284    0.13 -0.154 Right Foot    16.008                  1                                            The central position offers a good shooting angle, but the advanced goalkeeper covers much of the opening.
+9e626aa5-58e5-48c8-afd9-6d8eb3596264     1  0.215    0.09 -0.125 Right Foot    17.749                  1                                                The narrow shooting angle and the goalkeeper closing down the shot make this a low-probability chance.
+e0b68076-fbac-4918-b206-97d14b9d2e42     0  0.250    0.13 -0.120 Right Foot    17.272                  1 The shooter has a moderate angle from 17 yards, with only the goalkeeper directly in the shooting lane but a defender close enough to apply pressure.
