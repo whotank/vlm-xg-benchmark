@@ -1,0 +1,78 @@
+Data: StatsBomb open data, competition 43, season 106
+All non-penalty shots with freeze frames: 1430 (152 goals)
+VLM sample: 300 shots (42 goals), observed goal rate 0.140
+VLM: openai/gpt-6.2-astra, zero-shot, context=all pre-shot features + exact geometry
+Settings: thinking/reasoning level = medium; max output tokens = none; sampling = provider default
+OpenAI: Responses API, JSON mode (text.format=json_object)
+API usage, all invocations of this run: 300 calls, 0 failed, 0 accepted answers flagged incomplete; tokens: input 168418, cache writes 0, cached input 0, output 14464 (of which thinking 247)
+Cost: $1.9259 at 8.0/40.0 USD per 1M input/output tokens (third-party prices from the project notes (web search); openai.com is unreachable from this environment, so unverified, 2026-11-27)
+
+model              AUC    Brier  LogLoss   MeanXG
+vlm_xg           0.782   0.0982   0.3318    0.117
+sb_xg            0.793   0.0989   0.3378    0.100
+baseline_xg      0.768   0.1050   0.3494    0.108
+
+Brier(VLM) - Brier(StatsBomb) = -0.0007  (95% shot-level bootstrap CI -0.0051 to +0.0037)
+Brier(VLM) - Brier(baseline)  = -0.0068  (95% shot-level bootstrap CI -0.0123 to -0.0017)
+(match-clustered intervals for all runs: results/main_table.md, from compare_models.py)
+Spearman rho, VLM vs StatsBomb xG: 0.908
+Mean gap (VLM - StatsBomb): +0.017; mean absolute gap: 0.033
+
+Disagreement by body_part:
+              n  goals    vlm  statsbomb  mean_gap
+body_part                                         
+Head         63      7  0.154      0.098     0.056
+Left Foot    93     15  0.085      0.086    -0.001
+Other         3      0  0.423      0.379     0.045
+Right Foot  141     20  0.115      0.104     0.010
+
+Disagreement by play_pattern:
+                  n  goals    vlm  statsbomb  mean_gap
+play_pattern                                          
+From Corner      52      5  0.128      0.100     0.028
+From Counter     10      3  0.256      0.235     0.021
+From Free Kick   58      7  0.085      0.060     0.024
+From Goal Kick   18      5  0.112      0.085     0.026
+From Keeper       3      0  0.157      0.140     0.017
+From Kick Off     2      0  0.053      0.034     0.018
+From Throw In    55      6  0.086      0.076     0.010
+Regular Play    102     16  0.133      0.125     0.008
+
+Disagreement by cone_bin:
+            n  goals    vlm  statsbomb  mean_gap
+cone_bin                                        
+0           8      5  0.509      0.489     0.020
+1         137     26  0.149      0.133     0.016
+2         104      8  0.079      0.056     0.023
+3+         51      3  0.047      0.040     0.007
+
+Disagreement by dist_bin:
+           n  goals    vlm  statsbomb  mean_gap
+dist_bin                                       
+<6         8      4  0.588      0.480     0.108
+6-12      77     14  0.209      0.168     0.040
+12-18     81     18  0.113      0.101     0.011
+18-25     69      4  0.048      0.049    -0.001
+25+       65      2  0.027      0.024     0.003
+
+Largest VLM over-estimates:
+                             shot_id  goal  sb_xg  vlm_xg   gap  body_part  distance  defenders_in_cone                                                                                                                                            vlm_reason
+752418ff-5b38-47af-8789-2bac6b37f2c0     0  0.096    0.33 0.234 Right Foot    10.640                  2 The ground cut-back creates a good first-time chance from 10.6 yards, but two defenders in the shooting lane and an advanced keeper limit the finish.
+2b86a444-5696-4c2d-ba7f-837ec9756684     1  0.669    0.84 0.171 Right Foot     4.780                  0    The shooter has an unobstructed open goal from 4.8 yards and no immediate pressure, though a first-time volley is harder to control than a tap-in.
+19a225eb-4436-4a53-a354-3b40dfa6ca31     1  0.711    0.87 0.159       Head     3.360                  0                         The unpressured header from 3.4 yards has a wide view of an open goal, though the nearby keeper leaves some chance of a save.
+641eb264-6cf2-4608-a8b8-5c2405194994     0  0.271    0.43 0.159       Head     3.970                  1       Winning the header four yards out gives the shooter a wide target, but defensive pressure and a keeper close to the goal line limit the chance.
+9c16738b-cf6c-4669-a694-276a322ff6d8     0  0.146    0.30 0.154 Right Foot     6.297                  1             The 6.3-yard range makes this a good chance, but the narrow angle, nearby goalkeeper and pressure on the first-time half-volley limit it.
+449f2702-ad18-4bc8-a9ef-59fb1dc1a707     0  0.107    0.24 0.133       Head     9.338                  2               The shooter has space for a central header from 9.3 yards, but the high cross is difficult to direct past the goalkeeper and defenders.
+3a1509ee-760a-4695-8f34-4fc753ad490c     0  0.082    0.21 0.128 Right Foot     6.929                  1 The low cross creates a close-range chance, but the tight angle, nearby keeper and difficulty of a first-time backheel limit the scoring probability.
+0e55900b-d2c5-4473-b159-aa752a27e8f7     0  0.144    0.27 0.126       Head     5.860                  1          The close range and wide angle make this a good headed chance, but three nearby defenders contest the finish and the keeper covers the goal.
+
+Largest VLM under-estimates:
+                             shot_id  goal  sb_xg  vlm_xg    gap  body_part  distance  defenders_in_cone                                                                                                                                                        vlm_reason
+4b8db9ec-fbb1-485b-b348-d8bb3aecbf07     1  0.779    0.48 -0.299 Right Foot     9.534                  0                                              The first-time ground pass gives the shooter a clear, unpressured finish from 9.5 yards, with the keeper off-centre.
+eb01f465-08f6-4adf-a1b8-865127b41a97     1  0.408    0.23 -0.178  Left Foot    12.860                  1            The shooter has room to finish from 12.9 yards, but the 29-degree angle, a defender in the shooting lane and the advanced goalkeeper limit the chance.
+c15dc8c4-2d91-435a-a390-11fd17a2bf2f     0  0.317    0.18 -0.137 Right Foot    18.420                  1                                 The through ball gives the shooter a clean look, but the advancing keeper is close enough to narrow the 20-degree shooting angle.
+ed57db75-dfc9-4bf5-8f72-c85a80bb9829     0  0.455    0.32 -0.135  Left Foot     6.824                  1             The wide angle from 6.8 yards makes this a good chance, but the pressured first-time half-volley and a defender in the shooting lane reduce the odds.
+e0b68076-fbac-4918-b206-97d14b9d2e42     0  0.250    0.12 -0.130 Right Foot    17.272                  1 The first-time ground pass gives the shooter an unpressured look, but the 17.3-yard distance, 24-degree angle and defender in the shooting lane limit the chance.
+abff7ac7-6180-4fa7-94b9-0c644380e9a9     0  0.214    0.09 -0.124  Left Foot    18.279                  1                                     The low cross sets up a fairly central shot, but the 18.3-yard distance and a defender in the shooting lane limit the chance.
+e823ad07-c3bc-4381-ba75-91912727a627     0  0.434    0.33 -0.104 Right Foot    10.977                  1                         The first-time finish from 11 yards offers a good angle, but a defender in the shooting lane and an advanced goalkeeper limit the target.
+afbe9884-329f-4721-a822-ccba6d081310     0  0.258    0.16 -0.098  Left Foot    12.192                  1   The ground pass gives the shooter an unpressured first-time finish from 12 yards, but the 26-degree angle and a defender in the shooting lane limit the chance.
