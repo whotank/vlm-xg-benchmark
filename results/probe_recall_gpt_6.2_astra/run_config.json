@@ -1,0 +1,33 @@
+{
+ "task": "recall",
+ "backend": "openai",
+ "model": "gpt-6.2-astra",
+ "thinking_level": "medium",
+ "max_output_tokens": "none",
+ "sample": "results/probe_sample.json",
+ "shots": 0,
+ "context": "probe: recall the shot from match, clock and player (text only)",
+ "prompt_sha": "0a99dc002850",
+ "invocations": [
+  {
+   "started": "2026-11-27T22:17:01+00:00",
+   "n": 2,
+   "workers": 2,
+   "stage": "probe: contamination",
+   "finished": "2026-11-27T22:17:07+00:00",
+   "status": "complete",
+   "elapsed_s": 6
+  },
+  {
+   "started": "2026-11-27T22:25:14+00:00",
+   "n": 84,
+   "workers": 6,
+   "stage": "probe: contamination",
+   "finished": "2026-11-27T22:26:03+00:00",
+   "status": "complete",
+   "elapsed_s": 49
+  }
+ ],
+ "stage": "probe: contamination",
+ "n": 84
+}
