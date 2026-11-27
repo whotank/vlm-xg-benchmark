@@ -85,6 +85,9 @@ python probe_runs.py --task recall --backend anthropic --model claude-opus-5-5 -
 ```bash
 python xg_vlm_pilot.py --backend anthropic --model claude-opus-5-5 --input frame --view main
 ```
+```bash
+python xg_vlm_pilot.py --backend anthropic --model claude-opus-5-5 --shot-list docs/frame_capture_list.csv --tag framelist
+```
 
 Analysis (tables in `results/*.md`):
 ```bash

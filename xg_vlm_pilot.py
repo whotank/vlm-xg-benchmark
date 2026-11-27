@@ -886,6 +886,9 @@ def main():
     ap.add_argument("--input", choices=["image", "coords", "frame"], default="image",
                     help="coords: no image; the freeze frame is given as (x, y) coordinates in text instead. "
                          "frame: a captured broadcast frame of the shot (only shots with a frame are queried)")
+    ap.add_argument("--shot-list", help="query exactly the shots in this CSV (column shot_id) instead of the random "
+                                        "sample, e.g. docs/frame_capture_list.csv for a fresh drawing query of the "
+                                        "frame-pilot shots; needs --tag")
     ap.add_argument("--frames-dir", default="data_frames", help="--input frame: folder of <shot_id>_<view>.png files")
     ap.add_argument("--view", default="main", help="--input frame: which capture (main = live camera, replay = ...)")
     ap.add_argument("--shots", type=int, default=0, help="few-shot examples per prompt (0 = zero-shot)")
@@ -915,6 +918,9 @@ def main():
         sys.exit(f"--input {a.input} is zero-shot with that input only (no --shots, --context or --all-features)")
     if frame and not re.fullmatch(r"[A-Za-z0-9]+", a.view):
         sys.exit("--view must be letters and digits only (it is part of the file and folder names)")
+    if a.shot_list and (frame or not a.tag):
+        sys.exit("--shot-list needs --tag (it writes a new folder, e.g. --tag framelist) and cannot be combined with "
+                 "--input frame (frames define their own shots)")
     slug = re.sub(r"[^A-Za-z0-9.]+", "_", a.model) + ("_context" if a.context else "") + \
         ("_allfeat" if a.all_features else "") + ("_coords" if coords else "") + (f"_frames_{a.view}" if frame else "")
     if a.shots:
@@ -952,7 +958,14 @@ def main():
         sample = shots[shots.shot_id.isin(frames)].sort_values("shot_id").copy()
         if sample.empty:
             sys.exit(f"no frames named <shot_id>_{a.view}.png in {a.frames_dir}/ (see docs/frame_capture.md)")
-    n_run = len(sample) if frame else a.n
+    listed = []
+    if a.shot_list:
+        listed = [str(s) for s in pd.read_csv(a.shot_list).shot_id]
+        unknown = sorted(set(listed) - set(shots.shot_id))
+        if unknown:
+            sys.exit(f"{a.shot_list}: {len(unknown)} shot ids are not in the data, e.g. {unknown[0]}")
+        sample = shots.set_index("shot_id").loc[listed].reset_index()
+    n_run = len(sample) if (frame or listed) else a.n
 
     examples, ex_spec, ex_ids = [], None, []
     if a.shots:
@@ -982,6 +995,9 @@ def main():
         cfg["input"] = "coords"
     if frame:
         cfg.update(input="frame", view=a.view)
+    if listed:
+        cfg["shot_list"] = dict(file=os.path.basename(a.shot_list),
+                                sha=hashlib.sha1(",".join(sorted(listed)).encode()).hexdigest()[:12])
     fixed = list(cfg)
     old = {}
     if os.path.exists(cfg_path):

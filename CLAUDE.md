@@ -33,7 +33,8 @@ from an image of a shot situation alone, and where they diverge from established
 ## Files
 - `xg_vlm_pilot.py`: full pipeline (load, render, query VLM, evaluate). One run per model and setting.
   Backends: anthropic, gemini, openai, ollama. Options: `--shots k`, `--example-set A|B`, `--context`,
-  `--all-features`, `--input image|coords`, `--thinking-level`, `--workers`, `--tag`, `--stage`; budget guard
+  `--all-features`, `--input image|coords|frame`, `--shot-list` (exactly the shots in a CSV, needs `--tag`),
+  `--thinking-level`, `--workers`, `--tag`, `--stage`; budget guard
   and cost logging are built in.
 - `make_fewshot_examples.py`: chooses the fixed, nested few-shot example sets.
 - `baselines.py`: map-only baseline and the all-pre-shot-features logistic model (frozen folds) ->
@@ -49,6 +50,7 @@ from an image of a shot situation alone, and where they diverge from established
   - `--task recall`: probe B. Match, clock and shooter as text; remembered? goal? xG?
   - `--task perception`: the hybrid design. Read distance, angle and opponents in the triangle off the image.
   - `--view`: runs identify on captured broadcast frames.
+  - `--scale f`: perception with the image resized by f (sanity check; folder `<model>_perception_scale07` for 0.7).
 
   Folders: `probe_identify_<model>`, `probe_recall_<model>`, `<model>_perception`,
   `probe_identify_frames_<view>_<model>`. Each has `answers.csv` (parsed answers plus the shot's facts).
@@ -56,13 +58,15 @@ from an image of a shot situation alone, and where they diverge from established
   (+ `hybrid_shots.csv`). The probes' shots: `results/probe_sample.json`.
 - Broadcast-frame pilot:
   - `make_frame_list.py` -> `docs/frame_capture_list.csv` (30 shots); capture guide `docs/frame_capture.md`
-  - `xg_vlm_pilot.py --input frame --view main` (folders `<model>_frames_<view>`)
+  - `xg_vlm_pilot.py --input frame --view main` (folders `<model>_frames_<view>`), plus a fresh drawing query of
+    the same shots: `--shot-list docs/frame_capture_list.csv --tag framelist` (folders `<model>_framelist`)
   - `frames_analysis.py` -> `results/frames_pilot.md`
   - Frames live in `data_frames/`, which is gitignored: never commit them (broadcast footage).
 - `results/<run>/`: `summary.txt`, `shots.csv` (per-shot predictions and rationales), `vlm_cache.jsonl`
   (answers; newer runs also store token usage, cost and the SHA-1 of the image sent), and for newer runs
   `calls.jsonl` (every API call, including failures) and `run_config.json` (settings and invocations).
-- `results/main_table.{md,csv}`, `paired_differences.csv`, `distance_bands.{md,csv}`, `recalibration.{md,csv}`,
+- `results/main_table.{md,csv}`, `paired_differences.csv`, `distance_bands.{md,csv}` (+ `distance_bands_by_body.csv`,
+  headers vs foot), `recalibration.{md,csv}`,
   `fewshot.{md,csv}`, `context_ablation.{md,csv}`, `features_ablation.{md,csv}`, `coords_vs_image.{md,csv}`,
   `error_analysis.md` (+ `error_analysis_shots.csv`, `figure_error_gallery.png`), `baselines.{md,csv}`,
   `baseline_coefficients.md` (the baseline's coefficients and odds ratios per fold and on all shots),
@@ -125,89 +129,142 @@ Key findings:
   4-feature baseline and is not significantly worse than StatsBomb (p = 0.11); GPT-6.2 Astra (p = 0.11)
   and Gemini 4 Neon (p = 0.05) are borderline. Opus 5.5, Hydrogen, Sonnet, Gemini 3.8 Flash and Gemma
   remain significantly worse than StatsBomb. "Not significantly worse" is not equivalence: the upper CI
-  bounds still allow gaps of 0.012-0.019 Brier.
+  bounds still allow gaps of 0.012-0.019 Brier. It is also fragile: Carbon with the body part added has a
+  better Brier (0.104) but is significantly worse than StatsBomb (+0.004 [+0.000, +0.008], p = 0.045), because
+  the paired interval shifts. See the caveats under the design decisions.
 - Carbon was picked as "best Gemini 4" on the same 298 shots. Paired, it beats Opus 5.5 (ΔBrier -0.006
   [-0.012, -0.001], p = 0.02) and Hydrogen (-0.006, p = 0.006), but not Neon (-0.003, p = 0.14) or
   GPT-6.2 Astra (-0.003, p = 0.37); treat the top three as one tier.
 - Against the fair comparator, the map-only baseline (exact geometry from the image, no header flag), the
   frontier VLMs tie or win: Opus +0.001, Hydrogen +0.001, Neon -0.002, GPT-6.2 Astra -0.002 (all n.s.), and
-  Carbon -0.005 [-0.010, -0.001] (p = 0.013), from pixels alone. Most of the gap to the 4-feature baseline and
-  StatsBomb is information the image does not contain: the header flag alone is worth -0.005 Brier to the
-  logistic model, and the map-only baseline over-rates headers (0.201 vs StatsBomb 0.098) just like the VLMs.
+  Carbon -0.005 [-0.010, -0.001] (p = 0.013), from pixels alone. Much of the gap to the 4-feature baseline and
+  StatsBomb is plausibly information the image does not contain. The header flag improves the logistic model by
+  -0.005 [-0.010, +0.001] Brier (p = 0.088, n.s.), and the map-only baseline over-rates headers (0.201 vs
+  StatsBomb 0.098; observed 0.111) just like the VLMs.
 - Given every pre-shot attribute and the exact geometry as text (`_allfeat`), Gemini 4 Carbon (Brier 0.099,
   AUC 0.785) and GPT-6.2 Astra (0.099, 0.781) tie StatsBomb (-0.000 / -0.001) and a logistic model on the
   same attributes (+0.001 / +0.001); Opus reaches 0.104 (0.758). The extra information helps every model
   (Carbon -0.006, GPT -0.009, Opus -0.007 n.s., logistic -0.012), but VLM judgment is not better than a
   statistical model with the same inputs. With the numbers in hand the models barely reason (thinking tokens
   per shot: Opus ~16 vs ~160 image-only; GPT ~1).
-- Coordinates as text instead of the image (`_coords`; perception vs judgment): Carbon is unchanged (overall
-  ΔBrier +0.000; 6-12 yd over-estimate +0.030 -> +0.020, n.s.; headers 0.185 -> 0.179), so its close-range
-  error is judgment or missing information, not reading the picture. Opus's 6-12 yd over-estimate disappears
-  (+0.053 -> -0.014), but its whole level drops (mean 0.109 -> 0.082, 12-18 yd now 0.032 below StatsBomb,
-  headers 0.211 -> 0.142 although neither input has the body part) with unchanged Brier (+0.000) and AUC
-  (0.721 both): a level shift, not better reading. `results/coords_vs_image.md`.
+- Coordinates as text instead of the image (`_coords`; perception vs judgment; `results/coords_vs_image.md`).
+  Neither model's overall Brier or AUC changes (ΔBrier +0.000 for both).
+  - Carbon's 6-12 yd over-estimate moves +0.030 -> +0.020; the change, -0.011 [-0.026, +0.008], is
+    inconclusive. It neither confirms nor rules out that reading the picture contributed: the lower end would
+    remove 85% of the over-estimate. It is not evidence that the error is judgment.
+  - Opus's 6-12 yd level drops by -0.067 [-0.082, -0.049], against -0.013 [-0.017, -0.008] on all other shots, so
+    -0.054 [-0.071, -0.036] beyond its general level shift.
+  - That drop is not a correction. At 6-12 yd its headers go from +0.130 to +0.048 vs StatsBomb, but its foot
+    shots go from -0.055 to -0.101 (further below). The band's Brier changes by -0.010 [-0.024, +0.004] (n.s.).
+  - Most of the close-range over-estimate is on headers, which neither input can identify.
 - Hybrid (`results/hybrid.md`): the models read the geometry off the image, the map-only logistic model scores the
   readings.
-  - Asked only to measure, Opus and GPT-6.2 Astra read the distance to within 0.12 / 0.07 yd on average (r = 1.000)
-    and the angle to within 0.4° / 0.2°. They count the opponents in the shooting triangle exactly in 83% / 91% of
-    shots (97–100% within one). Gemini 4 Carbon, on the first 150 shots: 0.13 yd, 0.3°, opponents exact in 83%
-    (100% within one).
-  - Scored by the map-only model, the readings match the true geometry: ΔBrier +0.002 / +0.001 (n.s.); Carbon
-    +0.002 (n.s.). The small loss comes from miscounted opponents (AUC 0.695 / 0.708 vs 0.721).
+  - Asked only to measure, the models read the geometry almost exactly. Opus / GPT-6.2 Astra / Gemini 4 Carbon
+    (Carbon on the first 150 shots):
+    - distance to within 0.12 / 0.07 / 0.13 yd on average (r = 1.000)
+    - angle to within 0.4° / 0.2° / 0.3°
+    - opponents in the shooting triangle exact in 83% / 91% / 83% of shots (97–100% within one)
+  - Sanity check: Opus re-measured 30 shots with the image rescaled to 0.7x. The distance error grew from 0.11 to
+    0.17 yd, i.e. 0.65 px at full size and 0.70 px rescaled. The error follows the pixel grid: the readings are
+    measured off the image, to under a pixel.
+  - Scored by the map-only model, the readings match the true geometry: ΔBrier +0.002 / +0.001 / +0.002 (n.s.). The
+    small loss comes from miscounted opponents (AUC 0.695 / 0.708 vs 0.721). On the 150 shots all three measured, the
+    picture is the same.
   - So reading the picture is not what separates the VLMs from the statistical models. Their own xG differs from the
-    hybrid by −0.001 / −0.003 (n.s.), Carbon −0.005 (p = 0.12): that is judgment.
-  - At 6–12 yd the map-only model itself averages 0.204 (StatsBomb 0.168), because it does not know headers. Opus's
-    own xG there is 0.221, GPT's 0.298: GPT's extra close-range level is judgment, not perception.
-  - Caveat: the readings come from a separate request that only asks for measurements. In the xG request the models
-    think much less.
+    hybrid by −0.001 / −0.003 / −0.005 (all n.s.).
+  - At 6–12 yd the map-only model and the hybrids rate headers 0.19–0.20 (StatsBomb 0.095): nothing in the drawing
+    marks a header. They rate foot shots 0.21 (StatsBomb 0.271).
+  - Opus's own xG follows the map-only model there (headers 0.225, foot shots 0.215). GPT rates both at 0.298,
+    above StatsBomb on foot shots too, which is judgment rather than perception.
+  - Caveat: the readings come from a separate request that only asks for measurements, and measuring takes far
+    more thinking. Thinking tokens per shot, measuring vs the xG request: Opus 568 vs 159, Carbon 3,718 vs 107,
+    GPT 196 vs 25. The hybrid shows what the models can read, not what they use when they give an xG.
 - Contamination (`results/contamination_probe.md`; 84 shots: 42 goals, 42 misses):
   - Told the match, the minute and the shooter as text, Opus, Carbon and GPT label every shot correctly: sensitivity
     and specificity 100%, AUC 1.000 vs StatsBomb 0.790. They claim to remember every goal but only 10–57% of the
     misses; they infer the misses from knowing each match's goals.
-  - From the rendered maps no model recognises the match. Opus never guesses, and GPT's best guesses are at chance
-    (a correct team 11% vs 9%). Carbon's 3 claimed recognitions are all wrong (famous club goals).
-  - Without claiming recognition, Carbon's best guesses name two famous goals: Messi vs Mexico and Asano vs Germany
-    (confidence 0.15 / 0.12). Its image-only xG for them matches StatsBomb (0.03 / 0.04 vs 0.034 / 0.027), and
-    dropping them moves any ΔBrier by ≤ 0.0005.
-  - So the image-only results are not recall, but real footage, where the match and the moment can be identified,
-    needs the identify probe.
+  - From the rendered maps, identification is rare. P-values are exact permutation p-values (rook polynomial of
+    the guess × shot hit matrix).
+    - Opus never guesses.
+    - GPT's best guesses are at chance on every criterion (p ≥ 0.2).
+    - Carbon's 3 claimed recognitions are all wrong: two famous club goals (Agüero vs QPR 2012, Xabi Alonso in
+      the 2005 Champions League final) and Kolo Muani in the 2022 World Cup final, each attributed to a different
+      shot.
+    - Carbon's best guesses are above chance, though. It names the shooter in 4 of 84 shots (chance 1%,
+      p = 0.002), all goals: Messi twice, Giroud, Asano. It names both teams in 2 (p = 0.024) and the shooting
+      team in 4 (p = 0.038). Confidence is at most 0.15 and it never claims to recognise them.
+    - Its image-only xG for those four goals (0.05, 0.03, 0.24, 0.04) is close to StatsBomb's (0.07, 0.03, 0.17,
+      0.03).
+  - Sensitivity: dropping every shot with a claim or a hit on both teams or the shooter (8 shots) moves any probed
+    model's ΔBrier vs StatsBomb by ≤ 0.0011. Dropping every shot with any claim or hit, including a single correct
+    team (18 shots), moves it by ≤ 0.0020.
+  - So a model can place a few famous goals from the drawing, but the image-only results do not rest on it. Real
+    footage, where the match and the moment can be identified, needs the identify probe.
   - Told the shot and asked for an xG "regardless of the outcome", Opus's xG separates goals from misses better than
     StatsBomb (AUC 0.898 vs 0.790, p = 0.002): the known outcome leaks into the estimate.
-- Error analysis (`results/error_analysis.md`): 54% of the frontier models' Brier gap to StatsBomb accrues at
-  6-12 yd and 36% on headers (gap +0.117); the largest consensus over-estimates are all headers from 7-13 yd,
-  the largest under-estimates close-range foot shots that went in, usually with the keeper out of position
-  (models say so in their rationale and still rate them 0.08-0.24 below StatsBomb). Shots with no opponent in
-  the cone (8 shots, 5 goals) are rated 0.32 vs StatsBomb 0.49. Errors are shared: the five models' gaps
-  correlate at a median of 0.82, so the hard shots are hard for every model.
+- Error analysis (`results/error_analysis.md`): the averaged frontier prediction is +0.0078 [-0.0008, +0.0156]
+  Brier behind StatsBomb.
+  - Shares of that gap by group have very wide intervals (6-12 yd +54% [-27%, +115%], headers +36%
+    [-162%, +152%]), so read the mean gaps and contributions instead.
+  - Mean gaps: headers are over-rated by +0.117 [+0.103, +0.130] (frontier 0.214 vs StatsBomb 0.098, observed
+    0.111). Foot open-play shots are under-rated by -0.015 [-0.025, -0.006].
+  - The groups whose Brier contribution is significantly positive are foot open-play shots (+0.0048
+    [+0.0005, +0.0096]) and shots with no opponent in the cone (+0.0034 [+0.0008, +0.0069]; 8 shots, 5 goals,
+    rated 0.32 vs StatsBomb 0.49). Header over-rating contributes +0.0028 [-0.0041, +0.0079] (n.s.). In Brier
+    terms, under-rated real chances cost more than over-rated headers.
+  - The largest consensus over-estimates are all headers from 7-13 yd. The largest under-estimates are
+    close-range foot shots that went in, usually with the keeper out of position: rated 0.21-0.33 below
+    StatsBomb. Where a rationale says the keeper is off his line or out of position (0-2% of rationales), the model
+    still rates the shot 0.08-0.24 below StatsBomb on average.
+  - Errors are shared: the five models' gaps correlate at a median of 0.82, so the hard shots are hard for every
+    model.
 - With match clustering, Gemini 3.8 Flash vs the baseline is no longer significant (abstract: +0.010
   [+0.001, +0.020] shot-level; now [-0.002, +0.021]).
 - Ranking (AUC) and level diverge: among models with AUC 0.72-0.74, mean predicted xG ranges from 0.101 (Neon)
   to 0.167 (Gemini 3.8 Flash), against an observed 0.141 in this goal-rich sample (0.106 over all shots;
   StatsBomb 0.100). GPT-6.2 Astra (0.148) sits near the sample's rate, above the population's.
-- Errors concentrate at short range. At 6-12 yards (77 shots, 18% scored, StatsBomb 0.17): Sonnet 0.15,
-  Neon 0.19, Carbon 0.20, Opus 0.22, Hydrogen 0.22, GPT-6.2 Astra 0.30, Gemini 3.8 Flash 0.32, Gemma 0.45.
-  Beyond 18 yards frontier models match StatsBomb. Carbon tracks StatsBomb in every band.
-- Few-shot examples labelled with outcomes do not help: for Opus and Carbon, with example sets A and B, every
-  k = 1/5/10 run is within ±0.003 Brier of zero-shot (one Opus set B run reaches p = 0.03 in the wrong
-  direction), the same size as a plain rerun of the zero-shot setting (Opus +0.002, p = 0.26; Carbon +0.001,
-  p = 0.49). Run-to-run noise, not the examples, explains the differences.
+- The close-range over-estimate is a header problem (`results/distance_bands.md`, split by body part). At 6-12 yd
+  (77 shots, 18% scored, StatsBomb 0.168) there are two groups:
+  - 45 headers (5 goals; StatsBomb 0.095, observed 0.111). Every image-only model rates them above StatsBomb:
+    Sonnet 0.16, Neon 0.19, Carbon 0.19, Hydrogen 0.22, Opus 0.23, GPT-6.2 Astra 0.30, Gemini 3.8 Flash 0.31,
+    Gemma 0.40. So does the map-only baseline (0.20), because the drawing does not show the body part.
+  - 32 foot shots (9 goals; StatsBomb 0.271, observed 0.281). The frontier is below StatsBomb: Neon 0.20,
+    Carbon 0.21, Opus 0.22, Hydrogen 0.22, against the map-only baseline's 0.21. GPT-6.2 Astra (0.30), Gemini 3.8
+    Flash (0.34) and Gemma (0.52) are above it, Sonnet far below (0.12).
+
+  Over the whole band the frontier means are Sonnet 0.15, Neon 0.19, Carbon 0.20, Opus 0.22, Hydrogen 0.22,
+  GPT-6.2 Astra 0.30, Gemini 3.8 Flash 0.32, Gemma 0.45. Beyond 18 yards the frontier models match StatsBomb.
+- Few-shot examples labelled with outcomes do not help. For Opus and Carbon, with example sets A and B, every
+  k = 1/5/10 run is within ±0.0035 Brier of zero-shot.
+  - One Opus set B run reaches p = 0.026 in the wrong direction.
+  - That is the same size as a plain rerun of the zero-shot setting (Opus +0.002, p = 0.26; Carbon +0.001,
+    p = 0.49).
+  - Against Opus's same-environment zero-shot rerun, Opus's few-shot runs differ by -0.0030 to +0.0014 (all n.s.).
+  - Run-to-run noise, not the examples, explains the differences.
+  - Disclosure: set B example `483f71ea` (Kudus' goal, South Korea vs Ghana, 67:52) comes 2 s after test shot
+    `9d2721df` (Iñaki Williams, 67:50, no goal) in the same attack. Only k=10 set B includes it. Opus k=10 set B
+    rated that test shot 0.16 vs 0.09 zero-shot, and Carbon 0.14 vs 0.16. Dropping the shot leaves both runs'
+    ΔBrier unchanged at four decimals. Two set A examples are within 70 s of test shots (`results/fewshot.md`).
 - Body part fixes the header level, not the score: header mean xG falls 0.211 -> 0.141 (Opus) and
   0.185 -> 0.117 (Carbon), toward the observed 0.111 and StatsBomb 0.098; foot shots do not move; overall
   Brier changes by -0.001 / -0.002 (n.s.; only 7 header goals). Carbon + body part: AUC 0.758, Brier 0.104.
-- Recalibration (side analysis): only Gemma improves substantially (Brier 0.190 -> 0.121); every frontier
-  model moves by at most ~0.004 either way, like StatsBomb itself (+0.001 Platt / +0.006 isotonic).
+- Recalibration (side analysis): only Gemma improves substantially (Brier 0.190 -> 0.121).
+  - For the frontier zero-shot models, Platt moves Brier by +0.001 to +0.002. Isotonic moves it by -0.007 (Opus,
+    [-0.015, +0.000], p = 0.065) to +0.004 (Neon). None is significant.
+  - StatsBomb itself moves by +0.001 (Platt) and +0.006 (isotonic).
 - Rationales: Gemini 3.8 Flash calls 7-11 yard shots "point-blank"; Sonnet describes high-xG close shots as
   "very tight" angles. Inside 6 yards there are only 8 shots, so treat that band as suggestive.
 - The 12-18 yard band has an unusually high observed rate (23%); every model including StatsBomb is
   below it. That is sampling variation, not a VLM failure.
-- Cost (see `results/cost_summary.md`): all runs since Nov 27 cost $80.71 in total (Anthropic $26.22, Gemini
-  $45.83, OpenAI $8.66; 8,763 calls, none failed). Of that:
+- Cost (see `results/cost_summary.md`, rebuilt from every run's `calls.jsonl`): all runs since Nov 27 cost $81.12
+  in total (Anthropic $26.64, Gemini $45.83, OpenAI $8.66; 8,793 calls, none failed). Of that:
   - the overnight session: $54.48
   - the all-features and coordinates runs: $8.41
   - the contamination probes and perception runs: $17.81
+  - the rescaled-image check: $0.42
 
-  Left under the limits: Anthropic $3.78, Gemini $4.17, OpenAI $21.34 ($19.29 in total). That is enough for the
-  frame pilot. A 300-shot zero-shot run costs $1.2-$4.0; thinking
+  Left under the limits: Anthropic $3.36, Gemini $4.17, OpenAI $21.34 ($18.88 in total). A 300-shot zero-shot run
+  costs $1.2-$4.0; thinking
   depth at the same "medium" setting differs a lot (thinking tokens per shot: Carbon ~107, Neon ~593,
   Hydrogen ~572, GPT-6.2 Astra ~25; Opus at its default ~160). Few-shot k=10 costs $2.2 on Opus (cached
   prefix) but $7.2 on Carbon (no explicit caching on Gemini 4).
@@ -226,7 +283,8 @@ Recorded so the paper's methods section and later runs stay consistent.
   (identical to sklearn); log loss clips predictions to [0.001, 0.999] as in the pilot.
 
 ### Recalibration (Stage 2, side analysis; main results stay raw)
-- Platt = unpenalised logistic regression of goal on logit(p); isotonic = non-decreasing, clipped to [0, 1].
+- Platt = unpenalised logistic regression of goal on logit(p), with p clipped to [0.001, 0.999]. Isotonic =
+  non-decreasing step function of p. The recalibrated predictions are clipped to [0.001, 0.999], not [0, 1].
   Fitted out-of-fold, 5 folds grouped by match (the baseline's frozen match folds). The bootstrap resamples
   out-of-fold predictions (maps are not refitted inside it); a sensitivity table repeats the CV over 50
   seeded match permutations. StatsBomb and the baseline are recalibrated the same way as reference rows.
@@ -256,13 +314,33 @@ Recorded so the paper's methods section and later runs stay consistent.
   the examples are sent in full as a separate user turn; implicit caching hit only 17-19% of k=5/10 calls.
 - Ollama/Gemma: few-shot prompts use `/api/chat`, one user turn per example (image + label), `num_ctx` 16384;
   zero-shot still uses `/api/generate` exactly as before. Commands: `docs/colab_gemma_fewshot.md`.
+  - The same Colab session reruns Gemma zero-shot (`--tag colab`, folder `gemma4_26b_colab`), so few-shot is
+    compared with a same-environment k = 0.
+  - It records the Ollama version and model digest, pins matplotlib 3.11.2 and mplsoccer 1.8.1, and checks
+    truncation in `ollama.log`.
+  - Results are saved to Drive or a zip, not pushed from Colab.
 - Output folders: `<model>_k{n}` (set A), `<model>_k{n}_setB`. API runs are not deterministic, so part of any
   set A vs set B or k-to-k difference is run-to-run noise; `<model>_rerun` folders (zero-shot setting queried
   again, added as a control) measure it.
+- Opus's k = 0 row is the original zero-shot run, whose images were rendered in the authors' environment.
+  `claude_opus_5_5_rerun` is the zero-shot setting with images rendered here, like every few-shot run.
+  `results/fewshot.md` also compares each few-shot run with that rerun.
+- Examples close to test shots (`fewshot_analysis.py` lists every example within 120 s of a test shot in the same
+  match and half):
+  - set B example `483f71ea` (Kudus, goal) comes 2 s after test shot `9d2721df` (Iñaki Williams, no goal) in the
+    same Ghana attack against South Korea, and enters at k = 10
+  - set A example `7ce22041` (Eriksen) comes 49 s before test shot `641eb264` (Christensen, Denmark, same team),
+    at k = 10
+  - set A example `c56eba74` (Wales) comes about 70 s after two Iran test shots, at k = 5
+
+  Dropping the affected test shots leaves every run's ΔBrier vs k = 0 unchanged at the third decimal. The example
+  sets were drawn only from outside the test sample (no shot overlap), not from outside the test matches.
 
 ### Body-part context (Stage 5)
 - `--context` adds one line, "Body part used: <part>.", before the estimate request; nothing else changes.
-  Compared within model for Opus 5.5 and Gemini 4 Carbon (zero-shot): `results/context_ablation.md`.
+  Compared within model for Opus 5.5 and Gemini 4 Carbon (zero-shot): `results/context_ablation.md`. Opus's
+  no-context run is the original-environment run; its rerun (same environment as the context run) is shown as the
+  control.
 
 ### All pre-shot features (VLM judgment with perfect perception; added Nov 27)
 - Question: given everything StatsBomb's model knows before the strike, does a VLM judge better than a
@@ -286,13 +364,26 @@ Recorded so the paper's methods section and later runs stay consistent.
   `<model>_coords`. Analysis: `results/coords_vs_image.md`, overall and by distance band. Rule fixed before
   the runs: if the 6-12 yd over-estimate shrinks with coordinates, reading the picture was the problem; if
   not, it is judgment (or the step from raw coordinates to geometry, which the all-features runs remove).
+  Applying the rule:
+  - an interval that includes both no change and most of the over-estimate counts as inconclusive, not as
+    "judgment"
+  - a shrinking over-estimate is checked against the model's level shift on the shots outside 6-12 yd
+  - it is also checked by body part, headers vs foot shots, since a level drop that pushes under-rated foot shots
+    further down is not a correction
 
 ### Error analysis (added Nov 27, no API calls)
 - Frontier = the five zero-shot models with Brier <= 0.111 (Carbon, Neon, GPT-6.2 Astra, Opus, Hydrogen).
   Per shot: gap = frontier mean - StatsBomb; excess Brier = (frontier mean - goal)^2 - (StatsBomb - goal)^2.
-  Group shares of the excess, an OLS of the gap on standardised features (goal angle and keeper-to-shooter
-  distance left out: collinear with distance and keeper position) with match-clustered CIs, correlation of the
-  models' gaps, a gallery of the largest consensus disagreements, rationale phrases. `results/error_analysis.md`.
+  The report (`results/error_analysis.md`) has:
+  - per group: the mean gap, the additive contribution to ΔBrier and the share of it, each with a match-clustered
+    CI (shares are ratios of noisy sums, so their intervals are wide)
+  - a distance band x body part table
+  - an OLS of the gap on standardised features, with match-clustered CIs (goal angle and keeper-to-shooter distance
+    are left out: collinear with distance and keeper position)
+  - the correlation of the models' gaps
+  - a gallery of the largest consensus disagreements (missing images are rendered first; tables are written before
+    the figure)
+  - rationale phrases
 
 ### Contamination probes, hybrid perception, broadcast-frame pilot (added late Nov 27)
 - Match facts: `load_shots()` also keeps minute, second, period, player, team and the match's teams, date and stage.
@@ -310,7 +401,15 @@ Recorded so the paper's methods section and later runs stay consistent.
     - either team / both teams, with aliases for USA, Korea Republic, IR Iran and Holland
     - the shooting team
     - the shooter: the last word of the guess is a word of his full name or nickname
-  - chance = the same guesses scored against the facts of permuted shots (2,000 permutations)
+  - chance and p: under the null the guesses are matched to the shots by a uniformly random permutation.
+    - The hit count's distribution comes from the rook polynomial of the 84 x 84 guess × shot hit matrix, exact
+      with big-integer arithmetic (checked against brute force). Blocks too large for that fall back to 200,000
+      permutations; this was needed only for "a correct team".
+    - p = P(at least the observed hits); chance = the matrix mean.
+    - World Cup and 2022 get no chance level, because every shot is from the 2022 World Cup.
+  - sensitivity sets, each dropped from the 298 common shots:
+    - every shot with a claim or a hit on both teams or the shooter (8)
+    - every shot with any claim or hit (18)
 - Probe B (recall): text only, no positions. The prompt gives:
   - stage, teams and date
   - the match clock as mm:ss (StatsBomb's event clock) and the half
@@ -326,15 +425,41 @@ Recorded so the paper's methods section and later runs stay consistent.
   - The hybrid xG applies the map-only baseline's five fold models (refitted; checked to reproduce
     `baseline_image_xg` to 1e-9) to the readings, angle converted to radians, each shot scored by the fold model that
     never saw its match. Partial hybrids swap in one reading at a time.
-  - Opus and GPT-6.2 Astra ran all 300 shots. Gemini 4 Carbon thinks about 2,700 tokens per measurement (one call
-    25,600, $0.26), about $0.035 per shot, so it ran the first 150 shots of the sample. This keeps Gemini budget for
-    the frame pilot.
-- Frame pilot: 30 shots, the 12 error-gallery shots plus 18 random shots stratified by distance band (seed 2027).
+  - Opus and GPT-6.2 Astra ran all 300 shots. Gemini 4 Carbon ran the first 150 shots of the sample, to keep Gemini
+    budget for the frame pilot: it thought 3,718 tokens per shot on average (median 2,102, max 25,622; that call
+    cost $0.26), $0.040 per shot.
+  - `hybrid.py` uses only perception runs whose last invocation finished, and also compares the three models on the
+    150 shots all of them measured.
+  - Sanity check (`probe_runs.py --scale 0.7`): Opus re-measured the first 30 shots with the image resized to 0.7x
+    (Lanczos, re-encoded PNG; the original PNGs carry only matplotlib's version and dpi as metadata). The rendered
+    images have 5.9 px per yard, 4.1 rescaled. Folder `claude_opus_5_5_perception_scale07`.
+- Frame pilot: 30 shots from 26 matches on 17 dates: the 12 error-gallery shots plus 18 random shots stratified by
+  distance band (seed 2027; 1 goal among them).
   - Frame prompt = the zero-shot prompt with the three image lines replaced by "The image is a frame from the
     television broadcast of a professional match at the moment a shot is taken (the player striking the ball is the
     shooter)."
   - Frames are converted to PNG with the long side at most 1280 px. The score bar is cropped by hand.
   - Runs query only the shots that have a frame; the identify probe also runs on the frames (`--view`).
+  - Regression to the mean: the gallery shots were chosen for the original drawing runs' largest errors, so any new
+    query moves them toward StatsBomb. Frames are therefore compared with a fresh drawing query of the same 30 shots
+    (`--shot-list docs/frame_capture_list.csv --tag framelist`), or else read on the 18 random shots only.
+    `frames_analysis.py` reports all shots, the random shots and the gallery shots separately.
+
+### Caveats for the methods and discussion (added after the review of Nov 27)
+- Multiple comparisons: the main table alone has 96 paired ΔBrier tests (32 runs x StatsBomb, the baseline and the
+  map-only baseline), 34 of them below p = 0.05, plus the ablation tables. No correction is applied; read single
+  p-values near 0.05 as descriptive.
+- Selection on the evaluation set: Gemini 4 Carbon was picked as the best Gemini 4 on the same 298 shots it is
+  evaluated on, and the frontier group of the error analysis is defined by Brier on those shots too.
+- "Not significantly worse than StatsBomb" is fragile. Carbon is +0.006 [-0.002, +0.012] (p = 0.11), while Carbon +
+  body part, with a better Brier (0.104), is +0.004 [+0.000, +0.008] (p = 0.045, significant).
+- The 298-shot sample favours the all-pre-shot-features logistic model. On these shots it beats StatsBomb (AUC 0.815
+  vs 0.792, Brier 0.098 vs 0.100). On all 1,430 shots StatsBomb beats it (AUC 0.815 vs 0.790, Brier 0.0762 vs
+  0.0805; `results/baselines.md`). The sample is also goal-rich (0.141 vs 0.106).
+- Opus's original zero-shot run used images rendered in the authors' environment. Compare its few-shot, context and
+  perception runs with `claude_opus_5_5_rerun` as well.
+- The hybrid readings come from a separate, measuring-only request with much more thinking than the xG request.
+- Few-shot example sets avoid test shots but not test matches; one set B example is 2 s from a test shot (above).
 
 ### Model settings
 - Claude Opus 5.5: same request as the original run (no thinking or effort parameter, `max_tokens` 600; Opus 5.5
@@ -391,8 +516,9 @@ Recorded so the paper's methods section and later runs stay consistent.
   branch was created through the GitHub API, after which pushes worked.
 - Only the Gemma run is deterministic (temperature 0). API runs used default sampling.
 - Running analyses while runs are in progress is safe: unfinished runs are skipped.
-- Gemini 4 Carbon can think for a very long time on measuring tasks (perception: median ~2,200 thinking tokens, one call
-  25,600). Project the cost from the first 20 shots before running it on many shots.
+- Gemini 4 Carbon can think for a very long time on measuring tasks (perception: 3,718 thinking tokens per shot on
+  average, median 2,102, one call 25,622). Project the cost from the first 20 shots before running it on many
+  shots. An early 26-call projection (about 2,700) understated it.
 - The models remember 2022 World Cup outcomes (`results/contamination_probe.md`). Never put match, date, minute or
   player names in an xG prompt, and treat any real-footage result as possibly recalled unless the identify probe on
   the same frames comes back empty.

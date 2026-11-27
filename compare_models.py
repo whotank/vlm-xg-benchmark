@@ -70,9 +70,11 @@ def registry():
             for k in (1, 5, 10):
                 runs.append((f"{lab}, k={k}{' (set B)' if set_ else ''}", f"{fol}_k{k}{set_}",
                              "few-shot" + (" set B" if set_ else " set A")))
-    # same settings as an earlier run, queried again (run-to-run noise / rendering check)
+    # same settings as an earlier run, queried again (run-to-run noise / rendering check); _colab = the Gemma
+    # zero-shot rerun from the Colab session that also runs Gemma few-shot (docs/colab_gemma_fewshot.md)
     for lab, fol in BASE:
         runs.append((f"{lab} (rerun)", f"{fol}_rerun", "rerun"))
+        runs.append((f"{lab} (Colab rerun)", f"{fol}_colab", "rerun"))
     return runs
 
 

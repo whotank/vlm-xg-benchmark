@@ -136,9 +136,22 @@ def probe_sample(shots):
 
 
 # ---------------------------------------------------------------- requests and parsers
-def build_request(task, row, names, frames=None):
+def scaled_b64(row, scale):
+    """The zero-shot image resized by `scale` (Lanczos) and re-encoded as a new PNG (no metadata carried over)."""
+    import io, base64
+    from PIL import Image
+    im = Image.open(io.BytesIO(base64.b64decode(P.image_b64(row))))
+    im = im.resize((round(im.width * scale), round(im.height * scale)), Image.LANCZOS)
+    buf = io.BytesIO()
+    im.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+def build_request(task, row, names, frames=None, scale=None):
     if frames:
         return P.Req(image=P.frame_b64(frames[row.shot_id]), prompt=IDENTIFY_FRAME)
+    if scale:
+        return P.Req(image=scaled_b64(row, scale), prompt=TEMPLATE[task])
     if task == "recall":
         who = names.get(row.player, {}).get("name", row.player)
         prompt = RECALL.format(stage=STAGE.get(row.competition_stage, row.competition_stage), home=row.home_team,
@@ -264,6 +277,8 @@ def main():
     ap.add_argument("--view", help="identify only: use the captured broadcast frames <frames-dir>/<shot_id>_<view>.png "
                                    "instead of the drawing (docs/frame_capture.md)")
     ap.add_argument("--frames-dir", default="data_frames")
+    ap.add_argument("--scale", type=float, help="perception only: send the image resized by this factor (sanity check "
+                                                "that the readings' precision is not tied to the pixel grid)")
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--max-attempts", type=int, default=3)
     ap.add_argument("--tag", default="")
@@ -275,8 +290,11 @@ def main():
 
     if a.view and (a.task != "identify" or not re.fullmatch(r"[A-Za-z0-9]+", a.view)):
         sys.exit("--view works with --task identify only, and must be letters and digits")
+    if a.scale and (a.task != "perception" or not 0 < a.scale < 4):
+        sys.exit("--scale works with --task perception only, with a factor between 0 and 4")
     mslug = re.sub(r"[^A-Za-z0-9.]+", "_", a.model)
-    slug = (f"{mslug}_perception" if a.task == "perception" else
+    slug = (f"{mslug}_perception" + (f"_scale{str(a.scale).replace('.', '')}" if a.scale else "")
+            if a.task == "perception" else
             f"probe_identify_frames_{a.view}_{mslug}" if a.view else f"probe_{a.task}_{mslug}") + (f"_{a.tag}" if a.tag else "")
     out_dir = os.path.join(P.RESULTS, slug)
     cfg_path = os.path.join(out_dir, "run_config.json")
@@ -320,6 +338,8 @@ def main():
                prompt_sha=hashlib.sha1(template.encode()).hexdigest()[:12])
     if a.view:
         cfg.update(input="frame", view=a.view)
+    if a.scale:
+        cfg.update(scale=a.scale, context=cfg["context"] + f" (image resized to {a.scale}x)")
     fixed = list(cfg)
     old = {}
     if os.path.exists(cfg_path):
@@ -347,7 +367,7 @@ def main():
           f"${min(provider_room, total_room):.2f} ({a.backend} ${provider_room:.2f}, total ${total_room:.2f})")
     st = P.RunState(out_dir, price, len(todo), provider_room, total_room, a.budget_check_after)
     opt = P.Opts(thinking_level=a.thinking_level, max_tokens=max_out)
-    reqs = [(r.shot_id, build_request(a.task, r, names, frames)) for r in todo]   # renders in the main thread
+    reqs = [(r.shot_id, build_request(a.task, r, names, frames, a.scale)) for r in todo]   # renders in the main thread
 
     t0 = time.time()
     with cf.ThreadPoolExecutor(max_workers=max(1, a.workers)) as ex:

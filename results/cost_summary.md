@@ -1,6 +1,6 @@
 # API spend
 
-From `results/cost_log.csv` (37 rows), rebuilt from each run's `calls.jsonl` every time this script runs (rows without a run folder, the one-call setup checks, are kept as logged). Output tokens include thinking/reasoning tokens, which all three providers bill as output; the thinking column is the part the provider reports as thinking. Prices and sources per row are in the log. Gemma runs locally (no API cost). Latency = seconds per API call (median / 90th percentile) with parallel workers, including provider-side queueing.
+From `results/cost_log.csv` (38 rows), rebuilt from each run's `calls.jsonl` every time this script runs (rows without a run folder, the one-call setup checks, are kept as logged). Output tokens include thinking/reasoning tokens, which all three providers bill as output; the thinking column is the part the provider reports as thinking. Prices and sources per row are in the log. Gemma runs locally (no API cost). Latency = seconds per API call (median / 90th percentile) with parallel workers, including provider-side queueing.
 
 ## Per run
 
@@ -33,6 +33,7 @@ From `results/cost_log.csv` (37 rows), rebuilt from each run's `calls.jsonl` eve
 | hybrid: perception | claude_opus_5_5_perception | perception: read distance, angle, opponents in triangle from the image | 300 | 300 (0) | 205,500 | 0 | 0 | 181,067 (170,389) | $4.44 | $0.0148 | 6 / 8 | complete |
 | hybrid: perception | gemini_4_carbon_perception | thinking medium, perception: read distance, angle, opponents in triangle from the image | 150 | 150 (0) | 212,250 | 0 | 0 | 562,612 (557,651) | $6.05 | $0.0403 | 36 / 162 | complete |
 | hybrid: perception | gpt_6.2_astra_perception | thinking medium, perception: read distance, angle, opponents in triangle from the image | 300 | 300 (0) | 155,700 | 0 | 0 | 67,355 (58,673) | $3.94 | $0.0131 | 7 / 14 | complete |
+| hybrid: perception sanity check (0.7x) | claude_opus_5_5_perception_scale07 | perception: read distance, angle, opponents in triangle from the image (image resized to 0.7x) | 30 | 30 (0) | 15,570 | 0 | 0 | 17,796 (16,753) | $0.42 | $0.0139 | 6 / 8 | complete |
 | optional: GPT-6.2 Astra zero-shot | gpt_6.2_astra | thinking medium | 300 | 300 (0) | 120,300 | 0 | 0 | 20,487 (7,384) | $1.78 | $0.0059 | 4 / 6 | complete |
 | probe: contamination | probe_identify_claude_opus_5_5 | probe: identify the match from the image | 84 | 84 (0) | 53,928 | 0 | 0 | 6,483 (603) | $0.35 | $0.0041 | 1 / 2 | complete |
 | probe: contamination | probe_recall_claude_opus_5_5 | probe: recall the shot from match, clock and player (text only) | 84 | 84 (0) | 28,552 | 0 | 0 | 18,771 (10,504) | $0.49 | $0.0058 | 3 / 4 | complete |
@@ -56,6 +57,7 @@ From `results/cost_log.csv` (37 rows), rebuilt from each run's `calls.jsonl` eve
 | extra: zero-shot rerun (noise control) | 2 | 600 | $3.21 |
 | features: VLM + all pre-shot features | 3 | 900 | $4.66 |
 | hybrid: perception | 3 | 750 | $14.43 |
+| hybrid: perception sanity check (0.7x) | 1 | 30 | $0.42 |
 | optional: GPT-6.2 Astra zero-shot | 1 | 300 | $1.78 |
 | probe: contamination | 6 | 504 | $3.38 |
 | setup: smoke test | 3 | 3 | $0.02 |
@@ -64,8 +66,8 @@ From `results/cost_log.csv` (37 rows), rebuilt from each run's `calls.jsonl` eve
 
 | Provider | Rows | Calls (failed) | Cost | Limit | Left |
 |---|---|---|---|---|---|
-| anthropic | 14 | 3,475 (0) | $26.22 | $30 | $3.78 |
+| anthropic | 15 | 3,505 (0) | $26.64 | $30 | $3.36 |
 | gemini | 17 | 4,219 (0) | $45.83 | $50 | $4.17 |
 | openai | 6 | 1,069 (0) | $8.66 | $30 | $21.34 |
-| **Total** | 37 | 8,763 (0) | **$80.71** | $100 | $19.29 |
+| **Total** | 38 | 8,793 (0) | **$81.12** | $100 | $18.88 |
 

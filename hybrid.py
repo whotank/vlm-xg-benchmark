@@ -252,14 +252,21 @@ def main():
             continue
         ids = [s for s in a_s.index if s in a_f.index]
         tt = truth.loc[ids]
-        rows = []
+        rows, mae = [], []
         for name, a in [("full size", a_f), (f"{scale}x", a_s)]:
             r = a.loc[ids]
             de = r.read_distance.values - tt.distance.values
             ae = r.read_angle_deg.values - np.degrees(tt.angle.values)
             ne = r.read_opponents.values - tt.defenders_in_cone.values
+            mae.append(np.abs(de).mean())
             rows.append(f"| {name} | {np.abs(de).mean():.2f} | {np.median(np.abs(de)):.2f} | {np.abs(de).max():.2f} | "
-                        f"{de.mean():+.2f} | {np.abs(ae).mean():.2f} | {np.mean(ne == 0):.0%} |")
+                        f"{de.mean():+.2f} | {np.abs(ae).mean():.2f} | {np.mean(ne == 0):.0%} |".replace("| -", "| −"))
+        rows += ["", f"Distance error in pixels: {mae[0] * PX_PER_YARD:.2f} px at full size, "
+                     f"{mae[1] * PX_PER_YARD * scale:.2f} px at {scale}x; in yards it grew by a factor of "
+                     f"{mae[1] / mae[0]:.2f} (1/{scale} = {1 / scale:.2f}). "
+                 + ("The error follows the pixel grid: the model locates the markers to under a pixel at both sizes, so "
+                    "the readings are measured off the image." if 0.8 / scale <= mae[1] / mae[0] <= 1.6 / scale else
+                    "The error does not scale like the pixel grid; see the per-shot readings.")]
         L += ["", f"## Sanity check: {lab} reading the same {len(ids)} images rescaled to {scale}x", "",
               f"The rendered images have {PX_PER_YARD:.1f} pixels per yard (from the renderer's transform; 539 x 421 px), "
               f"the rescaled ones {PX_PER_YARD * scale:.1f}. Rescaling re-encodes the PNG (no metadata is carried over). "

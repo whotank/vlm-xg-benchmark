@@ -151,8 +151,9 @@ def main():
     L = ["# Error analysis: which shots do the VLMs get wrong?", "",
          f"Evaluation set: the {n} common shots ({y.sum()} goals). Frontier = {', '.join(FRONTIER)} (zero-shot, image "
          "only). Gap = frontier mean xG − StatsBomb xG. Excess Brier = (frontier mean − goal)² − (StatsBomb − goal)²; "
-         f"its mean is the Brier gap of the averaged frontier prediction to StatsBomb: {d_total:+.4f} "
-         f"[{d_ci[0]:+.4f}, {d_ci[1]:+.4f}]. A group's contribution is the sum of its shots' excess divided by all "
+         f"its mean is the Brier gap of the averaged frontier prediction to StatsBomb: "
+         + f"{d_total:+.4f} [{d_ci[0]:+.4f}, {d_ci[1]:+.4f}]".replace("-", "−")
+         + ". A group's contribution is the sum of its shots' excess divided by all "
          f"{n} shots (contributions add up to that total); its share is the contribution divided by the total. The "
          "share is a ratio of two noisy sums, so its interval is wide: read the mean gaps and contributions first. "
          "Brackets: 95% match-clustered bootstrap intervals.", ""]

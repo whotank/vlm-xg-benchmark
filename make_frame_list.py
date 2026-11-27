@@ -63,7 +63,9 @@ def main():
     out.to_csv(OUT, index=False)
     print(out[["order", "group", "match_date", "home_team", "away_team", "match_clock", "shooter", "outcome"]]
           .to_string(index=False))
-    print(f"\n{len(out)} shots ({(out.outcome == 'goal').sum()} goals) from {out.match_date.nunique()} dates -> {OUT}")
+    n_matches = out[["home_team", "away_team", "match_date"]].drop_duplicates().shape[0]
+    print(f"\n{len(out)} shots ({(out.outcome == 'goal').sum()} goals) from {n_matches} matches on "
+          f"{out.match_date.nunique()} dates -> {OUT}")
 
 
 if __name__ == "__main__":

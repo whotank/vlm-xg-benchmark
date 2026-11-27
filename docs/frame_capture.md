@@ -8,11 +8,23 @@ the match can turn estimation into recall.
 
 ## What to capture
 
-`docs/frame_capture_list.csv` lists 30 shots (8 goals, 17 matches), made by `make_frame_list.py`:
+`docs/frame_capture_list.csv` lists 30 shots (8 goals) from 26 matches played on 17 dates, made by
+`make_frame_list.py`:
 
 - rows 1–12: the error gallery (`results/figure_error_gallery.png`). Six headers from 7–13 yd that every frontier
   model over-rated, and six close-range goals that every frontier model under-rated.
-- rows 13–30: drawn at random from the other evaluation shots (seed 2027), spread over the distance bands.
+- rows 13–30: drawn at random from the other evaluation shots (seed 2027), spread over the distance bands. They hold
+  only one goal.
+
+Rows 1–12 were chosen because the original drawing runs got them most wrong, so any new query of them, frame or
+drawing, will tend to land closer to StatsBomb (regression to the mean). A frame that "fixes" a gallery shot
+therefore proves nothing by itself. Two safeguards:
+
+- Query the drawings of the same 30 shots again in the same session (the `--shot-list` commands below). Frame vs
+  that fresh drawing query is then fair on all 30 shots, because both share the selection effect.
+- Read frame vs the original drawing runs on the 18 random rows only. `frames_analysis.py` reports all shots, the
+  random rows and the gallery rows separately. With one goal among the random rows, they support comparisons of level
+  and Brier, not of ranking.
 
 Each row has what you need to find the moment:
 
@@ -60,6 +72,19 @@ python xg_vlm_pilot.py --backend anthropic --model claude-opus-5-5 --input frame
 python xg_vlm_pilot.py --backend openai --model gpt-6.2-astra --thinking-level medium --input frame --view main --workers 4
 ```
 
+A fresh drawing query of the same 30 shots in the same session (needed for a fair comparison of the gallery rows;
+about $0.2–0.5 per model):
+
+```bash
+python xg_vlm_pilot.py --backend gemini --model gemini-4-carbon --thinking-level medium --shot-list docs/frame_capture_list.csv --tag framelist --workers 4
+```
+```bash
+python xg_vlm_pilot.py --backend anthropic --model claude-opus-5-5 --shot-list docs/frame_capture_list.csv --tag framelist --workers 4
+```
+```bash
+python xg_vlm_pilot.py --backend openai --model gpt-6.2-astra --thinking-level medium --shot-list docs/frame_capture_list.csv --tag framelist --workers 4
+```
+
 The same question as the contamination probe, on the frames (does the model recognise the match?):
 
 ```bash
@@ -80,19 +105,21 @@ python frames_analysis.py
 
 `results/frames_pilot.md` then has, per model and view:
 
-- frame xG next to drawing xG, StatsBomb and the map-only baseline, shot by shot, with paired differences
+- frame xG next to the fresh drawing query (or the original drawing run), StatsBomb and the map-only baseline, with
+  paired differences, for all shots, the random rows and the gallery rows separately, and shot by shot
 - headers separately: a frame shows the body part, the drawing does not
 - whether the model recognised the match from the frame
 
-Output folders are `<model>_frames_<view>`; use `--view replay` for the replay frames.
+Output folders are `<model>_frames_<view>` and `<model>_framelist`; use `--view replay` for the replay frames.
 
 ## What it can and cannot show
 
-With 30 shots this is a pilot. It can show whether real pictures move the estimates in the directions the error
-analysis predicts:
+With 30 shots this is a pilot. Against the fresh drawing query, it can show whether real pictures move the estimates
+in the directions the error analysis predicts:
 
 - headers rated lower once the model can see they are headers
 - close-range goals with the keeper out of position rated higher
 
-It can also show whether the models recognise the matches. It cannot rank models or test significance. If a model
-recognises the match and its frame xG tracks the outcome better than StatsBomb, treat that as recall, not estimation.
+Without the fresh query, read the gallery rows as illustrations only. It can also show whether the models recognise
+the matches. It cannot rank models or test significance. If a model recognises the match and its frame xG tracks
+the outcome better than StatsBomb, treat that as recall, not estimation.

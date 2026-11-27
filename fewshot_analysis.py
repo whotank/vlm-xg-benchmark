@@ -120,7 +120,8 @@ def main():
 
     rows, band_rows, models = [], [], []
     for lab, fol in C.BASE:
-        variants = [("0", "zero-shot", fol), ("0", "zero-shot rerun", f"{fol}_rerun")]
+        variants = [("0", "zero-shot", fol), ("0", "zero-shot rerun", f"{fol}_rerun"),
+                    ("0", "zero-shot rerun (Colab)", f"{fol}_colab")]
         variants += [(str(k), "set A", f"{fol}_k{k}") for k in (1, 5, 10)]
         variants += [(str(k), "set B", f"{fol}_k{k}_setB") for k in (1, 5, 10)]
         variants = [(k, s, f) for k, s, f in variants if f in by_folder]
@@ -143,8 +144,9 @@ def main():
                     r[f"d{m}_vs_k0"] = r[m] - C.METRICS[m](y, p0)
                     r[f"d{m}_vs_k0_lo"], r[f"d{m}_vs_k0_hi"] = C.ci(d)
                     r[f"d{m}_vs_k0_p"] = C.boot_p(d)
-            rerun = f"{fol}_rerun"
-            if k != "0" and rerun in by_folder:   # against the zero-shot rerun (images rendered like the few-shot runs')
+            # against the zero-shot rerun from the few-shot runs' environment (Gemma: the Colab session's rerun)
+            rerun = f"{fol}_colab" if f"{fol}_colab" in by_folder else f"{fol}_rerun"
+            if k != "0" and rerun in by_folder:
                 pr = preds[by_folder[rerun]]
                 d = bt["brier"] - boot(C.brier, pr)
                 r["dbrier_vs_rerun"] = r["brier"] - C.brier(y, pr)

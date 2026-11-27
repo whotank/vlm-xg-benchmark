@@ -135,6 +135,17 @@ The drawing does not show the body part, so neither the map-only model nor the r
 | GPT-6.2 Astra | 25+ | all | 65 | 0.03 | 0.024 | 0.027 | 0.026 | 0.029 |
 | GPT-6.2 Astra | 25+ | foot/other | 65 | 0.03 | 0.024 | 0.027 | 0.026 | 0.029 |
 
+## Sanity check: Claude Opus 5.5 reading the same 30 images rescaled to 0.7x
+
+The rendered images have 5.9 pixels per yard (from the renderer's transform; 539 x 421 px), the rescaled ones 4.1. Rescaling re-encodes the PNG (no metadata is carried over). If the readings' precision came from the pixel grid alone, their errors would grow by about 1/0.7.
+
+| Image | Distance MAE (yd) | median AE | max AE | bias | Angle MAE (°) | Opponents exact |
+|---|---|---|---|---|---|---|
+| full size | 0.11 | 0.12 | 0.28 | −0.07 | 0.54 | 83% |
+| 0.7x | 0.17 | 0.14 | 0.41 | +0.05 | 0.73 | 87% |
+
+Distance error in pixels: 0.65 px at full size, 0.70 px at 0.7x; in yards it grew by a factor of 1.53 (1/0.7 = 1.43). The error follows the pixel grid: the model locates the markers to under a pixel at both sizes, so the readings are measured off the image.
+
 ## Reading
 
 - Claude Opus 5.5 (298 shots): distance read with a mean absolute error of 0.12 yd (bias at 6–12 yd −0.06 yd), angle 0.4°, opponents exact in 83%. Scored by the logistic model, the readings cost +0.0016 Brier against the true geometry (not significant; AUC 0.695 vs 0.721). The model's own xG differs from the hybrid by −0.0008 (not significant; AUC 0.721). At 6–12 yd, headers (45): StatsBomb 0.095, map-only 0.196, hybrid 0.198, the model 0.225; foot shots (32): StatsBomb 0.271, map-only 0.215, hybrid 0.213, the model 0.215. Per shot, distance misreading and the direct xG's gap to the map-only baseline correlate at ρ = −0.10 (6–12 yd: −0.22).

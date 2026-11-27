@@ -1,6 +1,6 @@
 # Error analysis: which shots do the VLMs get wrong?
 
-Evaluation set: the 298 common shots (42 goals). Frontier = Gemini 4 Carbon, Gemini 4 Neon, GPT-6.2 Astra, Claude Opus 5.5, Gemini 4 Hydrogen (zero-shot, image only). Gap = frontier mean xG − StatsBomb xG. Excess Brier = (frontier mean − goal)² − (StatsBomb − goal)²; its mean is the Brier gap of the averaged frontier prediction to StatsBomb: +0.0078 [-0.0008, +0.0156]. A group's contribution is the sum of its shots' excess divided by all 298 shots (contributions add up to that total); its share is the contribution divided by the total. The share is a ratio of two noisy sums, so its interval is wide: read the mean gaps and contributions first. Brackets: 95% match-clustered bootstrap intervals.
+Evaluation set: the 298 common shots (42 goals). Frontier = Gemini 4 Carbon, Gemini 4 Neon, GPT-6.2 Astra, Claude Opus 5.5, Gemini 4 Hydrogen (zero-shot, image only). Gap = frontier mean xG − StatsBomb xG. Excess Brier = (frontier mean − goal)² − (StatsBomb − goal)²; its mean is the Brier gap of the averaged frontier prediction to StatsBomb: +0.0078 [−0.0008, +0.0156]. A group's contribution is the sum of its shots' excess divided by all 298 shots (contributions add up to that total); its share is the contribution divided by the total. The share is a ratio of two noisy sums, so its interval is wide: read the mean gaps and contributions first. Brackets: 95% match-clustered bootstrap intervals.
 
 ## Distance band (yards)
 
@@ -16,15 +16,15 @@ Evaluation set: the 298 common shots (42 goals). Frontier = Gemini 4 Carbon, Gem
 
 | Group | n (goals) | StatsBomb | Frontier VLMs | Gap [95% CI] | Contribution to ΔBrier [95% CI] | Share of ΔBrier [95% CI] |
 |---|---|---|---|---|---|---|
-| 12–18, foot/other | 66 (18) | 0.115 | 0.107 | −0.008 [−0.022, +0.005] | +0.0019 [−0.0005, +0.0048] | +25% [−32%, +119%] |
-| 12–18, header | 13 (0) | 0.042 | 0.137 | +0.095 [+0.065, +0.129] | +0.0009 [+0.0003, +0.0018] | +12% [−25%, +73%] |
-| 18–25, foot/other | 68 (4) | 0.050 | 0.045 | −0.005 [−0.013, +0.002] | −0.0005 [−0.0013, +0.0002] | −6% [−57%, +17%] |
-| 18–25, header | 1 (0) | 0.026 | 0.064 | +0.038 [+0.038, +0.038] | +0.0000 [+0.0000, +0.0000] | +0% [+0%, +1%] |
-| 25+, foot/other | 65 (2) | 0.024 | 0.027 | +0.004 [+0.002, +0.006] | +0.0001 [+0.0000, +0.0002] | +1% [−2%, +5%] |
-| 6–12, foot/other | 32 (9) | 0.271 | 0.231 | −0.040 [−0.092, +0.004] | +0.0024 [−0.0011, +0.0062] | +31% [−42%, +174%] |
-| 6–12, header | 45 (5) | 0.095 | 0.224 | +0.129 [+0.119, +0.139] | +0.0018 [−0.0031, +0.0058] | +23% [−132%, +105%] |
-| <6, foot/other | 4 (2) | 0.637 | 0.466 | −0.172 [−0.307, −0.055] | +0.0011 [−0.0007, +0.0038] | +14% [−30%, +66%] |
 | <6, header | 4 (2) | 0.322 | 0.392 | +0.070 [−0.143, +0.160] | +0.0000 [−0.0022, +0.0017] | +0% [−93%, +60%] |
+| <6, foot/other | 4 (2) | 0.637 | 0.466 | −0.172 [−0.307, −0.055] | +0.0011 [−0.0007, +0.0038] | +14% [−30%, +66%] |
+| 6–12, header | 45 (5) | 0.095 | 0.224 | +0.129 [+0.119, +0.139] | +0.0018 [−0.0031, +0.0058] | +23% [−132%, +105%] |
+| 6–12, foot/other | 32 (9) | 0.271 | 0.231 | −0.040 [−0.092, +0.004] | +0.0024 [−0.0011, +0.0062] | +31% [−42%, +174%] |
+| 12–18, header | 13 (0) | 0.042 | 0.137 | +0.095 [+0.065, +0.129] | +0.0009 [+0.0003, +0.0018] | +12% [−25%, +73%] |
+| 12–18, foot/other | 66 (18) | 0.115 | 0.107 | −0.008 [−0.022, +0.005] | +0.0019 [−0.0005, +0.0048] | +25% [−32%, +119%] |
+| 18–25, header | 1 (0) | 0.026 | 0.064 | +0.038 [+0.038, +0.038] | +0.0000 [+0.0000, +0.0000] | +0% [+0%, +1%] |
+| 18–25, foot/other | 68 (4) | 0.050 | 0.045 | −0.005 [−0.013, +0.002] | −0.0005 [−0.0013, +0.0002] | −6% [−57%, +17%] |
+| 25+, foot/other | 65 (2) | 0.024 | 0.027 | +0.004 [+0.002, +0.006] | +0.0001 [+0.0000, +0.0002] | +1% [−2%, +5%] |
 
 ## Shot kind
 
