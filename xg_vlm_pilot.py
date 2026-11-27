@@ -168,10 +168,19 @@ def preshot_attributes(r, passes, x, y, ff):
         close_opponents=sum(math.hypot(q["location"][0] - x, q["location"][1] - y) <= 2.0 for q in outfield_opp))
 
 
+def match_meta(r, m):
+    """Who, when and where (never sent to a VLM in the xG runs; used by the contamination probe and the
+    broadcast-frame capture list). minute/second/period are StatsBomb's event clock."""
+    return dict(minute=int(r["minute"]), second=int(r["second"]), period=int(r["period"]),
+                player=r.get("player"), team=r.get("team"), home_team=m.home_team, away_team=m.away_team,
+                match_date=str(m.match_date), competition_stage=m.competition_stage)
+
+
 def load_shots(comp, season):
     matches = sb.matches(competition_id=comp, season_id=season)
     rows = []
-    for i, mid in enumerate(matches.match_id, 1):
+    for i, m in enumerate(matches.itertuples(), 1):
+        mid = m.match_id
         print(f"  loading match {i}/{len(matches)}", end="\r")
         ev = sb.events(match_id=mid)
         passes = ev[ev["type"] == "Pass"].set_index("id")
@@ -188,7 +197,7 @@ def load_shots(comp, season):
                 goal=int(r["shot_outcome"] == "Goal"), sb_xg=float(r["shot_statsbomb_xg"]),
                 body_part=r.get("shot_body_part"), play_pattern=r.get("play_pattern"),
                 distance=dist, angle=angle, header=int(r.get("shot_body_part") == "Head"),
-                defenders_in_cone=cone, **preshot_attributes(r, passes, x, y, ff)))
+                defenders_in_cone=cone, **preshot_attributes(r, passes, x, y, ff), **match_meta(r, m)))
     print()
     return pd.DataFrame(rows)
 
@@ -197,18 +206,21 @@ PRESHOT_COLUMNS = {"technique", "shot_type", "first_time", "one_on_one", "open_g
                    "follows_dribble", "under_pressure", "assist_pass", "assist_height", "assist_cross",
                    "assist_cutback", "assist_through", "assist_switch", "assist_setpiece", "gk_in_frame",
                    "gk_dist_goal_line", "gk_dist_shooter", "close_opponents"}
+META_COLUMNS = {"minute", "second", "period", "player", "team", "home_team", "away_team", "match_date",
+                "competition_stage"}
 
 
 def load_shots_cached(comp, season, refresh=False):
     """load_shots() takes ~1 min of downloads; keep a local pickle (data_cache/ is not committed).
-    A cache written before the pre-shot attribute columns existed is rebuilt automatically."""
+    A cache written before the pre-shot attribute or match columns existed is rebuilt automatically
+    (same matches and shots in the same order, so the random_state=7 sample does not change)."""
     path = os.path.join(DATA_CACHE, f"shots_{comp}_{season}.pkl")
     if os.path.exists(path) and not refresh:
         with open(path, "rb") as f:
             shots = pickle.load(f)
-        if PRESHOT_COLUMNS <= set(shots.columns):
+        if PRESHOT_COLUMNS | META_COLUMNS <= set(shots.columns):
             return shots
-        print("  data cache predates the pre-shot attribute columns; rebuilding it")
+        print("  data cache predates the pre-shot attribute / match columns; rebuilding it")
     shots = load_shots(comp, season)
     os.makedirs(DATA_CACHE, exist_ok=True)
     with open(path, "wb") as f:
@@ -720,7 +732,9 @@ class RunState:
                           f"is left under the provider/total limits")
 
 
-def query_shot(backend, model, opt, req, shot_id, st, cache, max_attempts):
+def query_shot(backend, model, opt, req, shot_id, st, cache, max_attempts, parser=None):
+    """parser(text) -> dict of answer fields, or None if the answer is unusable (default: the xG parser).
+    probe_runs.py passes its own parsers for answers that are not an xG."""
     for attempt in range(1, max_attempts + 1):
         if st.stop:
             return
@@ -745,13 +759,17 @@ def query_shot(backend, model, opt, req, shot_id, st, cache, max_attempts):
             time.sleep(5)
             continue
         cost = call_cost(resp.usage, st.price)
-        xg, why = parse(resp.text)
-        ok = not np.isnan(xg)
+        if parser is None:
+            xg, why = parse(resp.text)
+            fields = None if np.isnan(xg) else dict(vlm_xg=xg, reason=why)
+        else:
+            fields = parser(resp.text)
+        ok = fields is not None
         st.log_call(dict(kind="call", shot_id=shot_id, attempt=attempt, ok=ok, finish=resp.finish,
                          incomplete=resp.incomplete, usage=resp.usage, cost_usd=cost,
                          latency_s=round(time.time() - t0, 1), **({} if ok else {"raw": resp.text[:500]})))
         if ok:
-            st.save_answer(dict(shot_id=shot_id, vlm_xg=xg, reason=why, image_sha1=req.image_sha1,
+            st.save_answer(dict(shot_id=shot_id, **fields, image_sha1=req.image_sha1,
                                 raw=resp.text[:2000], finish=resp.finish,
                                 incomplete=resp.incomplete, usage=resp.usage, usage_raw=resp.usage_raw,
                                 cost_usd=cost, attempts=attempt, model_version=resp.model_version,

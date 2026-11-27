@@ -7,8 +7,8 @@ from an image of a shot situation alone, and where they diverge from established
 - Abstract submitted to the MIT Sloan Sports Analytics Conference 2027 (SSAC27) Research Paper
   Competition, Soccer track, on Oct 1, 2026. Title: "Can Vision-Language Models Estimate Expected
   Goals? A Benchmark Against Statistical xG" (check `docs/abstract.md` for the submitted version).
-- SSAC timeline: full-paper invitations late Oct 2026. Full paper: working deadline Tue Dec 1, 2026
-  (this file earlier listed the official due date as Dec 4, 2026; confirm which applies).
+- SSAC timeline: full-paper invitations late Oct 2026. Full paper due Tue Dec 1, 2026 (confirmed by the
+  authors on Nov 27; an earlier version of this file said Dec 4).
 - Longer-term plan: archival paper at the CVsports workshop (CVPR 2027), then an extended journal
   version (target: Computer Vision and Image Understanding). See `docs/xG_project_collaboration_brief.md`.
 
