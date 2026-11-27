@@ -186,8 +186,10 @@ def render(row, path):
         else:
             pitch.scatter(px, py, ax=ax, s=120, c="red", edgecolors="black")
     pitch.scatter(row.x, row.y, ax=ax, s=320, c="gold", marker="*", edgecolors="black")
-    fig.savefig(path, dpi=110, bbox_inches="tight")
+    tmp = f"{path}.{os.getpid()}.tmp.png"   # write then rename: other processes never see a partial file
+    fig.savefig(tmp, dpi=110, bbox_inches="tight")
     plt.close(fig)
+    os.replace(tmp, path)
 
 
 def image_b64(row):
@@ -205,6 +207,10 @@ class Req:
     image: str                                    # base64 PNG of the shot to evaluate
     prompt: str
     examples: list = field(default_factory=list)  # [(base64 PNG, label text)] shown before the shot
+
+    @property
+    def image_sha1(self):
+        return hashlib.sha1(base64.b64decode(self.image)).hexdigest()[:16]
 
 
 @dataclass
@@ -499,7 +505,15 @@ def read_jsonl(path):
 
 def cost_row(run, cfg, out_dir, status, notes=""):
     calls = read_jsonl(os.path.join(out_dir, "calls.jsonl"))
-    answers = read_jsonl(os.path.join(out_dir, "vlm_cache.jsonl"))
+    first, lines = {}, 0
+    for d in read_jsonl(os.path.join(out_dir, "vlm_cache.jsonl")):
+        first.setdefault(d["shot_id"], d)
+        lines += 1
+    answers = list(first.values())
+    if lines > len(answers):
+        dup = (f"{lines - len(answers)} shots were answered twice (a second process ran briefly on this folder); "
+               f"the first answer is used, all calls are billed and counted")
+        notes = f"{notes}; {dup}" if notes else dup
     api = [c for c in calls if c.get("kind", "call") == "call"]
     tot = lambda k: int(sum((c.get("usage") or {}).get(k) or 0 for c in calls))
     think = [(c.get("usage") or {}).get("thinking_tokens") for c in api]
@@ -609,7 +623,8 @@ def query_shot(backend, model, opt, req, shot_id, st, cache, max_attempts):
                          incomplete=resp.incomplete, usage=resp.usage, cost_usd=cost,
                          latency_s=round(time.time() - t0, 1), **({} if ok else {"raw": resp.text[:500]})))
         if ok:
-            st.save_answer(dict(shot_id=shot_id, vlm_xg=xg, reason=why, raw=resp.text[:2000], finish=resp.finish,
+            st.save_answer(dict(shot_id=shot_id, vlm_xg=xg, reason=why, image_sha1=req.image_sha1,
+                                raw=resp.text[:2000], finish=resp.finish,
                                 incomplete=resp.incomplete, usage=resp.usage, usage_raw=resp.usage_raw,
                                 cost_usd=cost, attempts=attempt, model_version=resp.model_version,
                                 ts=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")), cache)
@@ -722,6 +737,13 @@ def main():
                  f"Pass --allow-legacy-folder to fill gaps in that run, or --tag to start a new folder.")
     os.makedirs(out_dir, exist_ok=True)
     os.makedirs(IMG_DIR, exist_ok=True)
+    import fcntl
+    os.makedirs(DATA_CACHE, exist_ok=True)
+    run_lock = open(os.path.join(DATA_CACHE, f"run_{slug}.lock"), "w")
+    try:
+        fcntl.flock(run_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)   # held until the process exits
+    except BlockingIOError:
+        sys.exit(f"another process is already running {slug}")
 
     print("Loading StatsBomb shots...")
     shots = add_baseline(load_shots_cached(a.comp, a.season, a.refresh_data))
@@ -763,7 +785,9 @@ def main():
     with open(cfg_path, "w") as f:
         json.dump(cfg, f, indent=1)
 
-    cache = {d["shot_id"]: d for d in read_jsonl(os.path.join(out_dir, "vlm_cache.jsonl"))}
+    cache = {}
+    for d in read_jsonl(os.path.join(out_dir, "vlm_cache.jsonl")):
+        cache.setdefault(d["shot_id"], d)   # if a shot was answered twice, the first answer counts
     legacy = sum("usage" not in d for d in cache.values())
     if legacy:
         notes_legacy = f"{legacy} answers predate cost logging (their tokens and cost are not in this row)"
