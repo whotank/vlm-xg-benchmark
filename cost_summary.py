@@ -5,7 +5,8 @@ and cost per answered shot. Prices and their sources are in the log itself (one 
 Output: results/cost_summary.md
 Run: python cost_summary.py
 """
-import os
+import os, json
+import numpy as np
 import pandas as pd
 
 LOG, OUT = os.path.join("results", "cost_log.csv"), os.path.join("results", "cost_summary.md")
@@ -22,19 +23,30 @@ def main():
                                            f"k={k}" + (f" set {e}" if isinstance(e, str) and e else "") if int(k) else "",
                                            "body part" if str(c) == "True" else ""] if x) or "zero-shot"
                      for t, k, e, c in zip(d.thinking_level, d.k, d.example_set, d.context)]
+    lat = {}
+    for run in d.run:
+        path = os.path.join("results", run, "calls.jsonl")
+        if os.path.exists(path):
+            with open(path) as f:
+                v = [json.loads(l).get("latency_s") for l in f if l.strip()]
+            v = [x for x in v if x is not None]
+            if v:
+                lat[run] = np.percentile(v, [50, 90])
+    d["lat"] = [f"{lat[r][0]:.0f} / {lat[r][1]:.0f}" if r in lat else "" for r in d.run]
     d = d.sort_values(["stage", "provider", "run"])
     L = ["# API spend", "", f"From `results/cost_log.csv` ({len(d)} rows). Output tokens include thinking/reasoning "
          "tokens, which all three providers bill as output; the thinking column is the part the provider reports as "
-         "thinking. Prices and sources per row are in the log. Gemma runs locally (no API cost).", "",
+         "thinking. Prices and sources per row are in the log. Gemma runs locally (no API cost). Latency = seconds per "
+         "API call (median / 90th percentile) with parallel workers, including provider-side queueing.", "",
          "## Per run", "",
-         "| Stage | Run | Settings | Shots | Calls (failed) | Input | Cache write | Cache read | Output (thinking) | Cost | Per shot | Status |",
-         "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+         "| Stage | Run | Settings | Shots | Calls (failed) | Input | Cache write | Cache read | Output (thinking) | Cost | Per shot | Latency s | Status |",
+         "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for _, r in d.iterrows():
         th = "" if pd.isna(r.thinking_tokens) else f" ({int(r.thinking_tokens):,})"
         ps = "" if pd.isna(r.per_shot) else f"${r.per_shot:.4f}"
         L.append(f"| {r.stage} | {r.run} | {r.settings} | {int(r.shots_answered)} | {int(r.calls)} ({int(r.failed_calls)}) | "
                  f"{int(r.input_tokens):,} | {int(r.cache_write_tokens):,} | {int(r.cached_input_tokens):,} | "
-                 f"{int(r.output_tokens):,}{th} | ${r.cost_usd:.2f} | {ps} | {r.status} |")
+                 f"{int(r.output_tokens):,}{th} | ${r.cost_usd:.2f} | {ps} | {r.lat} | {r.status} |")
     p = d.groupby("provider").agg(runs=("run", "size"), calls=("calls", "sum"), cost=("cost_usd", "sum"))
     L += ["", "## Per provider", "", "| Provider | Rows | Calls | Cost | Limit |", "|---|---|---|---|---|"]
     limits = {"anthropic": 30, "gemini": 50, "openai": 30}

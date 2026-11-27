@@ -10,10 +10,10 @@ Cost: $4.0329 at 3.0/15.0 USD per 1M input/output tokens (third-party (apidog.co
 model              AUC    Brier  LogLoss   MeanXG
 vlm_xg           0.720   0.1076   0.3717    0.100
 sb_xg            0.793   0.0989   0.3378    0.100
-baseline_xg      0.762   0.1070   0.3563    0.107
+baseline_xg      0.768   0.1050   0.3494    0.108
 
 Brier(VLM) - Brier(StatsBomb) = +0.0088  (95% shot-level bootstrap CI +0.0014 to +0.0168)
-Brier(VLM) - Brier(baseline)  = +0.0006  (95% shot-level bootstrap CI -0.0070 to +0.0088)
+Brier(VLM) - Brier(baseline)  = +0.0026  (95% shot-level bootstrap CI -0.0045 to +0.0106)
 (match-clustered intervals for all runs: results/main_table.md, from compare_models.py)
 Spearman rho, VLM vs StatsBomb xG: 0.839
 Mean gap (VLM - StatsBomb): +0.000; mean absolute gap: 0.047

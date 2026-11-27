@@ -29,6 +29,23 @@
    "finished": "2026-11-27T07:31:50+00:00",
    "status": "complete",
    "elapsed_s": 646
+  },
+  {
+   "started": "2026-11-27T07:40:21+00:00",
+   "n": 300,
+   "workers": 1,
+   "stage": "",
+   "versions": {
+    "anthropic": "2.14.0",
+    "google-genai": "3.6.1",
+    "openai": "3.60.0",
+    "matplotlib": "3.11.2",
+    "mplsoccer": "1.8.1",
+    "statsbombpy": "1.22.0"
+   },
+   "finished": "2026-11-27T07:40:21+00:00",
+   "status": "complete",
+   "elapsed_s": 0
   }
  ],
  "stage": "3: Gemini 4 zero-shot",
