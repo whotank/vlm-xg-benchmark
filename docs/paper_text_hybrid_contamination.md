@@ -39,13 +39,14 @@ shots: all 42 goals among the 298 evaluation shots and 42 randomly drawn misses.
 
 **The models read the drawing almost exactly.** Asked to measure, Opus and GPT-6.2 Astra read the distance with mean
 absolute errors of 0.12 and 0.07 yards (r = 1.000) and the angle with errors of 0.4° and 0.2°. They count the
-opponents in the shooting triangle exactly in 83% and 91% of shots (97–100% within one). [Gemini 4 Carbon,
-150 shots: still running when this was drafted.]
+opponents in the shooting triangle exactly in 83% and 91% of shots (97–100% within one). Gemini 4 Carbon, on 150
+shots, reads them as accurately: 0.13 yards, 0.3°, and 83% of opponents counted exactly.
 
-Scored by the map-only model, the readings perform like the true geometry: ΔBrier +0.002 [−0.000, +0.004] for Opus
-and +0.001 [−0.000, +0.002] for GPT, both n.s. The small loss comes from miscounted opponents. Reading the picture
-therefore does not explain why the VLMs fall short of the statistical models. Their own xG differs from these
-hybrids by −0.001 (Opus) and −0.003 (GPT), both n.s.
+Scored by the map-only model, the readings perform like the true geometry: ΔBrier +0.002 [−0.000, +0.004] for Opus,
++0.001 [−0.000, +0.002] for GPT and +0.002 [−0.000, +0.005] for Carbon, all n.s. The small loss comes from
+miscounted opponents. Reading the picture therefore does not explain why the VLMs fall short of the statistical
+models. Their own xG differs from these hybrids by −0.001 (Opus), −0.003 (GPT) and −0.005 (Carbon, p = 0.12),
+none significant.
 
 At 6–12 yards the geometry-only model itself averages 0.204 against StatsBomb's 0.168, because it cannot tell
 headers from shots. Opus's own xG there, 0.221, is close to it. GPT's, 0.298, is far above what its near-perfect

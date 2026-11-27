@@ -150,12 +150,12 @@ Key findings:
   readings.
   - Asked only to measure, Opus and GPT-6.2 Astra read the distance to within 0.12 / 0.07 yd on average (r = 1.000)
     and the angle to within 0.4° / 0.2°. They count the opponents in the shooting triangle exactly in 83% / 91% of
-    shots (97–100% within one). Gemini 4 Carbon's 150-shot measuring run was still in progress when this was
-    written.
-  - Scored by the map-only model, the readings match the true geometry: ΔBrier +0.002 / +0.001 (n.s.). The small
-    loss comes from miscounted opponents (AUC 0.695 / 0.708 vs 0.721).
+    shots (97–100% within one). Gemini 4 Carbon, on the first 150 shots: 0.13 yd, 0.3°, opponents exact in 83%
+    (100% within one).
+  - Scored by the map-only model, the readings match the true geometry: ΔBrier +0.002 / +0.001 (n.s.); Carbon
+    +0.002 (n.s.). The small loss comes from miscounted opponents (AUC 0.695 / 0.708 vs 0.721).
   - So reading the picture is not what separates the VLMs from the statistical models. Their own xG differs from the
-    hybrid by −0.001 / −0.003 (n.s.): that is judgment.
+    hybrid by −0.001 / −0.003 (n.s.), Carbon −0.005 (p = 0.12): that is judgment.
   - At 6–12 yd the map-only model itself averages 0.204 (StatsBomb 0.168), because it does not know headers. Opus's
     own xG there is 0.221, GPT's 0.298: GPT's extra close-range level is judgment, not perception.
   - Caveat: the readings come from a separate request that only asks for measurements. In the xG request the models
@@ -200,9 +200,14 @@ Key findings:
   "very tight" angles. Inside 6 yards there are only 8 shots, so treat that band as suggestive.
 - The 12-18 yard band has an unusually high observed rate (23%); every model including StatsBomb is
   below it. That is sampling variation, not a VLM failure.
-- Cost (see `results/cost_summary.md`): all runs since Nov 27 cost $62.89 in total (Anthropic $20.94, Gemini
-  $38.24, OpenAI $3.71; 7,509 calls, none failed); the overnight session was $54.48 of it, the all-features
-  and coordinates runs $8.41. A 300-shot zero-shot run costs $1.2-$4.0; thinking
+- Cost (see `results/cost_summary.md`): all runs since Nov 27 cost $80.71 in total (Anthropic $26.22, Gemini
+  $45.83, OpenAI $8.66; 8,763 calls, none failed). Of that:
+  - the overnight session: $54.48
+  - the all-features and coordinates runs: $8.41
+  - the contamination probes and perception runs: $17.81
+
+  Left under the limits: Anthropic $3.78, Gemini $4.17, OpenAI $21.34 ($19.29 in total). That is enough for the
+  frame pilot. A 300-shot zero-shot run costs $1.2-$4.0; thinking
   depth at the same "medium" setting differs a lot (thinking tokens per shot: Carbon ~107, Neon ~593,
   Hydrogen ~572, GPT-6.2 Astra ~25; Opus at its default ~160). Few-shot k=10 costs $2.2 on Opus (cached
   prefix) but $7.2 on Carbon (no explicit caching on Gemini 4).

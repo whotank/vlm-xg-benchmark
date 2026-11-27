@@ -31,7 +31,7 @@ From `results/cost_log.csv` (37 rows). Output tokens include thinking/reasoning 
 | features: VLM + all pre-shot features | gemini_4_carbon_allfeat | thinking medium, all pre-shot features | 300 | 300 (0) | 434,972 | 0 | 0 | 40,209 (25,207) | $1.27 | $0.0042 | 7 / 45 | complete |
 | features: VLM + all pre-shot features | gpt_6.2_astra_allfeat | thinking medium, all pre-shot features | 300 | 300 (0) | 168,418 | 0 | 0 | 14,464 (247) | $1.93 | $0.0064 | 3 / 4 | complete |
 | hybrid: perception | claude_opus_5_5_perception | perception: read distance, angle, opponents in triangle from the image | 300 | 300 (0) | 205,500 | 0 | 0 | 181,067 (170,389) | $4.44 | $0.0148 | 6 / 8 | complete |
-| hybrid: perception | gemini_4_carbon_perception | thinking medium, perception: read distance, angle, opponents in triangle from the image | 2 | 2 (0) | 2,830 | 0 | 0 | 6,717 (6,651) | $0.07 | $0.0364 | 37 / 96 | complete |
+| hybrid: perception | gemini_4_carbon_perception | thinking medium, perception: read distance, angle, opponents in triangle from the image | 150 | 150 (0) | 212,250 | 0 | 0 | 562,612 (557,651) | $6.05 | $0.0403 | 36 / 162 | complete |
 | hybrid: perception | gpt_6.2_astra_perception | thinking medium, perception: read distance, angle, opponents in triangle from the image | 300 | 300 (0) | 155,700 | 0 | 0 | 67,355 (58,673) | $3.94 | $0.0131 | 7 / 14 | complete |
 | optional: GPT-6.2 Astra zero-shot | gpt_6.2_astra | thinking medium | 300 | 300 (0) | 120,300 | 0 | 0 | 20,487 (7,384) | $1.78 | $0.0059 | 4 / 6 | complete |
 | probe: contamination | probe_identify_claude_opus_5_5 | probe: identify the match from the image | 84 | 84 (0) | 53,928 | 0 | 0 | 6,483 (603) | $0.35 | $0.0041 | 1 / 2 | complete |
@@ -49,7 +49,7 @@ From `results/cost_log.csv` (37 rows). Output tokens include thinking/reasoning 
 | Provider | Rows | Calls | Cost | Limit |
 |---|---|---|---|---|
 | anthropic | 14 | 3,475 | $26.22 | $30 |
-| gemini | 17 | 4,071 | $39.85 | $50 |
+| gemini | 17 | 4,219 | $45.83 | $50 |
 | openai | 6 | 1,069 | $8.66 | $30 |
-| **Total** | 37 | 8,615 | **$74.73** | $100 |
+| **Total** | 37 | 8,763 | **$80.71** | $100 |
 

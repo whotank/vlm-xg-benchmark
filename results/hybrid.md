@@ -14,6 +14,12 @@ Error = reading − true value. Opponents: share read exactly, and within ±1.
 | Claude Opus 5.5 | 12–18 yd | 79 | -0.08 | 0.12 | 0.12 | | +0.1 | 0.2 | 82% | 100% | +0.10 |
 | Claude Opus 5.5 | 18–25 yd | 69 | -0.09 | 0.11 | 0.09 | | -0.0 | 0.2 | 86% | 100% | -0.06 |
 | Claude Opus 5.5 | 25+ yd | 65 | -0.11 | 0.13 | 0.13 | | +0.0 | 0.1 | 83% | 97% | -0.08 |
+| Gemini 4 Carbon | all | 150 | -0.03 | 0.13 | 0.10 | 1.000 | +0.0 | 0.3 | 83% | 100% | +0.11 |
+| Gemini 4 Carbon | <6 yd | 6 | +0.00 | 0.10 | 0.10 | | -0.4 | 2.2 | 83% | 100% | +0.17 |
+| Gemini 4 Carbon | 6–12 yd | 41 | -0.02 | 0.10 | 0.09 | | +0.0 | 0.5 | 90% | 100% | +0.10 |
+| Gemini 4 Carbon | 12–18 yd | 42 | +0.02 | 0.15 | 0.11 | | +0.0 | 0.3 | 83% | 100% | +0.12 |
+| Gemini 4 Carbon | 18–25 yd | 30 | -0.05 | 0.13 | 0.09 | | +0.0 | 0.1 | 73% | 100% | +0.20 |
+| Gemini 4 Carbon | 25+ yd | 31 | -0.10 | 0.13 | 0.11 | | +0.0 | 0.1 | 84% | 100% | +0.03 |
 | GPT-6.2 Astra | all | 298 | -0.00 | 0.07 | 0.06 | 1.000 | +0.0 | 0.2 | 91% | 100% | +0.02 |
 | GPT-6.2 Astra | <6 yd | 8 | +0.00 | 0.10 | 0.11 | | -0.2 | 1.4 | 100% | 100% | +0.00 |
 | GPT-6.2 Astra | 6–12 yd | 77 | -0.00 | 0.07 | 0.06 | | +0.1 | 0.4 | 88% | 100% | +0.01 |
@@ -32,6 +38,13 @@ Error = reading − true value. Opponents: share read exactly, and within ±1.
 | Claude Opus 5.5 | Hybrid: opponents read, rest true | 0.696 [0.603, 0.789] | 0.112 [0.079, 0.149] | 0.110 | +0.002 [−0.000, +0.003] | 0.053 |
 | Claude Opus 5.5 | Direct: the model's own xG (zero-shot, image) | 0.721 [0.624, 0.808] | 0.111 [0.079, 0.147] | 0.109 | +0.001 [−0.006, +0.008] | 0.820 |
 | Claude Opus 5.5 | StatsBomb xG | 0.792 [0.704, 0.867] | 0.100 [0.069, 0.136] | 0.100 | −0.011 [−0.018, −0.003] | 0.003 |
+| Gemini 4 Carbon | Map-only baseline (true geometry) | 0.717 [0.587, 0.841] | 0.114 [0.078, 0.157] | 0.117 |  | |
+| Gemini 4 Carbon | Hybrid: all three read by the model | 0.697 [0.562, 0.826] | 0.116 [0.079, 0.161] | 0.112 | +0.002 [−0.000, +0.005] | 0.152 |
+| Gemini 4 Carbon | Hybrid: distance read, rest true | 0.717 [0.590, 0.840] | 0.114 [0.078, 0.157] | 0.117 | +0.000 [−0.000, +0.000] | 0.367 |
+| Gemini 4 Carbon | Hybrid: angle read, rest true | 0.718 [0.587, 0.841] | 0.114 [0.078, 0.157] | 0.117 | −0.000 [−0.000, +0.000] | 0.708 |
+| Gemini 4 Carbon | Hybrid: opponents read, rest true | 0.697 [0.561, 0.826] | 0.116 [0.079, 0.161] | 0.112 | +0.002 [−0.000, +0.005] | 0.136 |
+| Gemini 4 Carbon | Direct: the model's own xG (zero-shot, image) | 0.723 [0.610, 0.828] | 0.112 [0.075, 0.154] | 0.115 | −0.003 [−0.008, +0.003] | 0.343 |
+| Gemini 4 Carbon | StatsBomb xG | 0.762 [0.638, 0.862] | 0.114 [0.076, 0.157] | 0.102 | −0.001 [−0.009, +0.007] | 0.862 |
 | GPT-6.2 Astra | Map-only baseline (true geometry) | 0.721 [0.636, 0.808] | 0.110 [0.078, 0.147] | 0.111 |  | |
 | GPT-6.2 Astra | Hybrid: all three read by the model | 0.708 [0.622, 0.796] | 0.111 [0.078, 0.148] | 0.110 | +0.001 [−0.000, +0.002] | 0.147 |
 | GPT-6.2 Astra | Hybrid: distance read, rest true | 0.720 [0.636, 0.807] | 0.110 [0.078, 0.147] | 0.111 | +0.000 [+0.000, +0.000] | 0.031 |
@@ -47,6 +60,7 @@ Direct − map-only = (hybrid − map-only: misreading the image) + (direct − 
 | Model | n | Direct − map-only | p | Misreading: hybrid − map-only | p | Judgment: direct − hybrid | p |
 |---|---|---|---|---|---|---|---|
 | Claude Opus 5.5 | 298 | +0.001 [−0.006, +0.008] | 0.820 | +0.002 [−0.000, +0.004] | 0.071 | −0.001 [−0.007, +0.005] | 0.792 |
+| Gemini 4 Carbon | 150 | −0.003 [−0.008, +0.003] | 0.343 | +0.002 [−0.000, +0.005] | 0.152 | −0.005 [−0.011, +0.001] | 0.124 |
 | GPT-6.2 Astra | 298 | −0.002 [−0.011, +0.006] | 0.613 | +0.001 [−0.000, +0.002] | 0.147 | −0.003 [−0.012, +0.005] | 0.504 |
 
 ## Mean xG by distance band
@@ -58,6 +72,11 @@ Direct − map-only = (hybrid − map-only: misreading the image) + (direct − 
 | Claude Opus 5.5 | 12–18 | 79 | 0.23 | 0.103 | 0.101 | 0.098 | 0.102 |
 | Claude Opus 5.5 | 18–25 | 69 | 0.06 | 0.049 | 0.051 | 0.053 | 0.041 |
 | Claude Opus 5.5 | 25+ | 65 | 0.03 | 0.024 | 0.027 | 0.027 | 0.029 |
+| Gemini 4 Carbon | <6 | 6 | 0.50 | 0.463 | 0.499 | 0.475 | 0.465 |
+| Gemini 4 Carbon | 6–12 | 41 | 0.17 | 0.139 | 0.193 | 0.187 | 0.174 |
+| Gemini 4 Carbon | 12–18 | 42 | 0.24 | 0.107 | 0.103 | 0.099 | 0.117 |
+| Gemini 4 Carbon | 18–25 | 30 | 0.07 | 0.055 | 0.054 | 0.050 | 0.053 |
+| Gemini 4 Carbon | 25+ | 31 | 0.00 | 0.023 | 0.024 | 0.023 | 0.027 |
 | GPT-6.2 Astra | <6 | 8 | 0.50 | 0.480 | 0.528 | 0.527 | 0.547 |
 | GPT-6.2 Astra | 6–12 | 77 | 0.18 | 0.168 | 0.204 | 0.202 | 0.298 |
 | GPT-6.2 Astra | 12–18 | 79 | 0.23 | 0.103 | 0.101 | 0.100 | 0.141 |
@@ -67,6 +86,7 @@ Direct − map-only = (hybrid − map-only: misreading the image) + (direct − 
 ## Reading
 
 - Claude Opus 5.5 (298 shots): distance read with a mean absolute error of 0.12 yd (bias at 6–12 yd -0.06 yd), angle 0.4°, opponents exact in 83%. Scored by the logistic model, the readings cost +0.0016 Brier against the true geometry (not significant; AUC 0.695 vs 0.721). The model's own xG differs from the hybrid by -0.0008 (not significant; AUC 0.721). Per shot, distance misreading and the direct xG's gap to the map-only baseline correlate at ρ = -0.10 (6–12 yd: -0.22).
+- Gemini 4 Carbon (150 shots): distance read with a mean absolute error of 0.13 yd (bias at 6–12 yd -0.02 yd), angle 0.3°, opponents exact in 83%. Scored by the logistic model, the readings cost +0.0018 Brier against the true geometry (not significant; AUC 0.697 vs 0.717). The model's own xG differs from the hybrid by -0.0045 (not significant; AUC 0.723). Per shot, distance misreading and the direct xG's gap to the map-only baseline correlate at ρ = -0.10 (6–12 yd: 0.02).
 - GPT-6.2 Astra (298 shots): distance read with a mean absolute error of 0.07 yd (bias at 6–12 yd -0.00 yd), angle 0.2°, opponents exact in 91%. Scored by the logistic model, the readings cost +0.0007 Brier against the true geometry (not significant; AUC 0.708 vs 0.721). The model's own xG differs from the hybrid by -0.0028 (not significant; AUC 0.733). Per shot, distance misreading and the direct xG's gap to the map-only baseline correlate at ρ = -0.14 (6–12 yd: -0.16).
 
 Caveat: the readings come from a separate request that asks only for measurements; in the xG request the model may look less carefully (it thinks far less there: results/cost_summary.md). The hybrid shows what the model can read off the image, not what it used when it gave its xG.
