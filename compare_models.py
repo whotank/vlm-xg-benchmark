@@ -33,6 +33,13 @@ N_BOOT, BOOT_SEED = 2000, 0
 BANDS = [0, 6, 12, 18, 25, 200]
 BAND_LABELS = ["<6", "6–12", "12–18", "18–25", "25+"]
 REFS = ["StatsBomb xG", "Logistic baseline"]
+# extra statistical baselines from baselines.py (same frozen match folds), shown as reference rows if present.
+# "Map-only baseline" = the logistic baseline without the header flag: only information drawn in the image.
+EXTRA_REFS = {"Map-only baseline": "baseline_image_xg", "Logistic, all pre-shot features": "baseline_full_xg"}
+# paired ΔBrier / ΔAUC / Δlog-loss of every row against each of these (tag used in main_table.csv columns)
+PAIRED_REFS = [("StatsBomb xG", "sb"), ("Logistic baseline", "base"), ("Map-only baseline", "map")]
+GROUP_ORDER = ["zero-shot", "few-shot set A", "few-shot set B", "context", "all features", "coordinates",
+               "rerun", "reference"]
 
 # ---------------------------------------------------------------- run registry
 # (label, folder, group). Folders without shots.csv yet (or never run) are skipped automatically.
@@ -53,6 +60,10 @@ def registry():
     runs = [(lab, fol, "zero-shot") for lab, fol in BASE]
     for lab, fol in BASE:
         runs.append((f"{lab} + body part", f"{fol}_context", "context"))
+    for lab, fol in BASE:
+        runs.append((f"{lab} + all pre-shot features", f"{fol}_allfeat", "all features"))
+    for lab, fol in BASE:
+        runs.append((f"{lab}, coordinates as text", f"{fol}_coords", "coordinates"))
     for set_ in ["", "_setB"]:
         for lab, fol in BASE:
             for k in (1, 5, 10):
@@ -183,6 +194,12 @@ def assemble(runs, common):
     preds["Logistic baseline"] = base.baseline_xg.values.astype(float)
     groups = {lab: grp for lab, _, grp, _ in runs}
     groups.update({r: "reference" for r in REFS})
+    extra = os.path.join(RES, "baselines.csv")
+    if os.path.exists(extra):
+        b = pd.read_csv(extra).set_index("shot_id").loc[common]
+        for lab, col in EXTRA_REFS.items():
+            preds[lab] = b[col].values.astype(float)
+            groups[lab] = "reference"
     folders = {lab: fol for lab, fol, _, _ in runs}
     return base, preds, groups, folders
 
@@ -217,8 +234,8 @@ def tables(y, preds, groups, folders, B, bands):
         for k, f in METRICS.items():
             r[k] = f(y, p)
             r[f"{k}_lo"], r[f"{k}_hi"] = ci(B["boot"][m][k])
-        for ref, tag in [("StatsBomb xG", "sb"), ("Logistic baseline", "base")]:
-            if m == ref:
+        for ref, tag in PAIRED_REFS:
+            if m == ref or ref not in preds:
                 continue
             for k in ["auc", "brier", "logloss"]:
                 d = B["boot"][m][k] - B["boot"][ref][k]
@@ -232,7 +249,7 @@ def tables(y, preds, groups, folders, B, bands):
                     r[f"dbrier_vs_{tag}_iid_lo"], r[f"dbrier_vs_{tag}_iid_hi"] = ci(B["iid_brier"][m] - B["iid_brier"][ref])
         rows.append(r)
     main = pd.DataFrame(rows)
-    order = {g: i for i, g in enumerate(["zero-shot", "few-shot set A", "few-shot set B", "context", "rerun", "reference"])}
+    order = {g: i for i, g in enumerate(GROUP_ORDER)}
     main = main.sort_values("group", key=lambda s: s.map(order), kind="stable").reset_index(drop=True)
 
     band_rows = []
@@ -259,21 +276,25 @@ def write_markdown(main, bands_df, y, B, n_matches, path_main, path_bands):
             f"Brackets: 95% percentile intervals from a match-clustered bootstrap "
             f"({B['n_boot']:,} resamples of matches, seed {BOOT_SEED}). ΔBrier = Brier(model) − Brier(reference); "
             f"negative favours the model. p = two-sided bootstrap p-value for ΔBrier = 0.\n")
-    L = ["# Main results table", "", head]
+    L = ["# Main results table", "", head,
+         "References: StatsBomb xG; the logistic baseline (distance, angle, header, defenders in the cone); the "
+         "map-only baseline (the same model without the header flag, i.e. only information drawn in the image).", ""]
+    has_map = "dbrier_vs_map" in main.columns
     for grp, g in main.groupby("group", sort=False):
         L += [f"## {grp}", "",
-              "| Model | AUC | Brier | Log loss | Mean xG | ΔBrier vs StatsBomb | p | ΔBrier vs baseline | p |",
-              "|---|---|---|---|---|---|---|---|---|"]
+              "| Model | AUC | Brier | Log loss | Mean xG | ΔBrier vs StatsBomb | p | ΔBrier vs baseline | p |"
+              + (" ΔBrier vs map-only baseline | p |" if has_map else ""),
+              "|---|---|---|---|---|---|---|---|---|" + ("---|---|" if has_map else "")]
         for _, r in g.iterrows():
             def d(tag):
                 if pd.isna(r.get(f"dbrier_vs_{tag}")):
                     return "", ""
                 return (fmt(r[f"dbrier_vs_{tag}"], r[f"dbrier_vs_{tag}_lo"], r[f"dbrier_vs_{tag}_hi"], sign=True),
                         fmt_p(r[f"dbrier_vs_{tag}_p"]))
-            (dsb, psb), (dba, pba) = d("sb"), d("base")
+            (dsb, psb), (dba, pba), (dmp, pmp) = d("sb"), d("base"), d("map")
             L.append(f"| {r.model} | {fmt(r.auc, r.auc_lo, r.auc_hi)} | {fmt(r.brier, r.brier_lo, r.brier_hi)} | "
                      f"{fmt(r.logloss, r.logloss_lo, r.logloss_hi)} | {fmt(r.mean_xg, r.mean_xg_lo, r.mean_xg_hi)} | "
-                     f"{dsb} | {psb} | {dba} | {pba} |")
+                     f"{dsb} | {psb} | {dba} | {pba} |" + (f" {dmp} | {pmp} |" if has_map else ""))
         L.append("")
     L += ["## Sensitivity: shot-level vs match-clustered bootstrap for ΔBrier", "",
           "The abstract used a shot-level bootstrap. Match clustering usually widens the intervals a little.", "",
@@ -350,9 +371,12 @@ def figure_forest(main_t, path):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     names = {"zero-shot": "Zero-shot", "few-shot set A": "Few-shot, example set A", "few-shot set B":
-             "Few-shot, example set B", "context": "Body part given", "rerun": "Zero-shot, queried again"}
+             "Few-shot, example set B", "context": "Body part given", "all features": "Image + all pre-shot features",
+             "coordinates": "Coordinates as text (no image)",
+             "rerun": "Zero-shot, queried again", "reference": "Other statistical baselines"}
     rows, ypos, heads, y = [], [], [], 0
-    for grp, g in main_t[main_t.group != "reference"].groupby("group", sort=False):
+    shown = main_t[~main_t.model.isin(REFS)]   # StatsBomb and the original baseline are the vertical lines
+    for grp, g in shown.groupby("group", sort=False):
         heads.append((y, names.get(grp, grp)))
         y += 1
         for _, r in g.iterrows():

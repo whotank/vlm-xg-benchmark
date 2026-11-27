@@ -116,7 +116,7 @@ def main():
         print(f"  {m:<34} Brier raw {r['brier_raw']:.4f}  Platt {r['brier_platt']:.4f}  isotonic {r['brier_isotonic']:.4f}")
 
     df = pd.DataFrame(rows)
-    order = {k: i for i, k in enumerate(["zero-shot", "few-shot set A", "few-shot set B", "context", "rerun", "reference"])}
+    order = {k: i for i, k in enumerate(C.GROUP_ORDER)}
     df = df.sort_values("group", key=lambda s: s.map(order), kind="stable").reset_index(drop=True)
     df.to_csv(os.path.join(C.RES, "recalibration.csv"), index=False)
 

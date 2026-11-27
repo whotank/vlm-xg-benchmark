@@ -60,6 +60,14 @@ OUTCOME = {1: "Outcome: GOAL", 0: "Outcome: NO GOAL"}   # labels are actual outc
 EXAMPLE_FILES = {"A": os.path.join(RESULTS, "fewshot_examples.json"),
                  "B": os.path.join(RESULTS, "fewshot_examples_setB.json")}
 
+# --input coords: the three lines describing the image are replaced by the same freeze frame as text;
+# the role line, the task lines and the JSON line stay identical.
+IMAGE_LINES = ("The image shows a shot at the moment it is taken, drawn on a half pitch with the goal at the top.\n"
+               "Gold star = shooter. Blue circles = shooter's teammates. Red circles = opponents.\n"
+               "Orange square = opposing goalkeeper.\n")
+assert IMAGE_LINES in PROMPT
+PROMPT_COORDS = PROMPT.replace(IMAGE_LINES, "{coords}")
+
 # ---------------------------------------------------------------- prices (USD per 1M tokens)
 # Thinking / reasoning tokens are billed as output tokens by all three providers.
 # 'schedule' switches prices from a date (UTC). Models without an entry are logged without a cost.
@@ -126,12 +134,47 @@ def in_triangle(p, a, b, c):
     return not ((d1 < 0 or d2 < 0 or d3 < 0) and (d1 > 0 or d2 > 0 or d3 > 0))
 
 
+def _flag(r, col):
+    """StatsBomb boolean attributes are True when set and missing (NaN / absent column) otherwise."""
+    v = r.get(col)
+    return int(isinstance(v, (bool, np.bool_)) and bool(v))
+
+
+SET_PIECE_PASSES = {"Corner", "Free Kick", "Throw-in", "Goal Kick", "Kick Off"}
+
+
+def preshot_attributes(r, passes, x, y, ff):
+    """Attributes known before the ball is struck (used by --all-features and the full-feature baseline).
+    Nothing recorded after the strike (end location, deflection, save details, outcome) is included."""
+    kp = r.get("shot_key_pass_id")
+    p = passes.loc[kp] if isinstance(kp, str) and kp in passes.index else None
+    gk = [q for q in ff if not q["teammate"] and (q.get("position") or {}).get("name") == "Goalkeeper"]
+    gx, gy = gk[0]["location"][:2] if gk else (np.nan, np.nan)
+    outfield_opp = [q for q in ff if not q["teammate"] and (q.get("position") or {}).get("name") != "Goalkeeper"]
+    return dict(
+        technique=r.get("shot_technique") if isinstance(r.get("shot_technique"), str) else "Normal",
+        shot_type=r.get("shot_type") if isinstance(r.get("shot_type"), str) else "Open Play",
+        first_time=_flag(r, "shot_first_time"), one_on_one=_flag(r, "shot_one_on_one"),
+        open_goal=_flag(r, "shot_open_goal"), aerial_won=_flag(r, "shot_aerial_won"),
+        follows_dribble=_flag(r, "shot_follows_dribble"), under_pressure=_flag(r, "under_pressure"),
+        assist_pass=int(p is not None),
+        assist_height=(p.get("pass_height") if p is not None and isinstance(p.get("pass_height"), str) else ""),
+        assist_cross=_flag(p, "pass_cross") if p is not None else 0,
+        assist_cutback=_flag(p, "pass_cut_back") if p is not None else 0,
+        assist_through=int(p is not None and (_flag(p, "pass_through_ball") or p.get("pass_technique") == "Through Ball")),
+        assist_switch=_flag(p, "pass_switch") if p is not None else 0,
+        assist_setpiece=(p.get("pass_type") if p is not None and p.get("pass_type") in SET_PIECE_PASSES else ""),
+        gk_in_frame=int(bool(gk)), gk_dist_goal_line=GOAL[0] - gx, gk_dist_shooter=math.hypot(gx - x, gy - y),
+        close_opponents=sum(math.hypot(q["location"][0] - x, q["location"][1] - y) <= 2.0 for q in outfield_opp))
+
+
 def load_shots(comp, season):
     matches = sb.matches(competition_id=comp, season_id=season)
     rows = []
     for i, mid in enumerate(matches.match_id, 1):
         print(f"  loading match {i}/{len(matches)}", end="\r")
         ev = sb.events(match_id=mid)
+        passes = ev[ev["type"] == "Pass"].set_index("id")
         for _, r in ev[ev["type"] == "Shot"].iterrows():
             ff = r.get("shot_freeze_frame")
             if r.get("shot_type") == "Penalty" or not isinstance(ff, list):
@@ -145,17 +188,27 @@ def load_shots(comp, season):
                 goal=int(r["shot_outcome"] == "Goal"), sb_xg=float(r["shot_statsbomb_xg"]),
                 body_part=r.get("shot_body_part"), play_pattern=r.get("play_pattern"),
                 distance=dist, angle=angle, header=int(r.get("shot_body_part") == "Head"),
-                defenders_in_cone=cone))
+                defenders_in_cone=cone, **preshot_attributes(r, passes, x, y, ff)))
     print()
     return pd.DataFrame(rows)
 
 
+PRESHOT_COLUMNS = {"technique", "shot_type", "first_time", "one_on_one", "open_goal", "aerial_won",
+                   "follows_dribble", "under_pressure", "assist_pass", "assist_height", "assist_cross",
+                   "assist_cutback", "assist_through", "assist_switch", "assist_setpiece", "gk_in_frame",
+                   "gk_dist_goal_line", "gk_dist_shooter", "close_opponents"}
+
+
 def load_shots_cached(comp, season, refresh=False):
-    """load_shots() takes ~1 min of downloads; keep a local pickle (data_cache/ is not committed)."""
+    """load_shots() takes ~1 min of downloads; keep a local pickle (data_cache/ is not committed).
+    A cache written before the pre-shot attribute columns existed is rebuilt automatically."""
     path = os.path.join(DATA_CACHE, f"shots_{comp}_{season}.pkl")
     if os.path.exists(path) and not refresh:
         with open(path, "rb") as f:
-            return pickle.load(f)
+            shots = pickle.load(f)
+        if PRESHOT_COLUMNS <= set(shots.columns):
+            return shots
+        print("  data cache predates the pre-shot attribute columns; rebuilding it")
     shots = load_shots(comp, season)
     os.makedirs(DATA_CACHE, exist_ok=True)
     with open(path, "wb") as f:
@@ -229,16 +282,57 @@ def image_b64(row):
         return base64.b64encode(f.read()).decode()
 
 
+def features_block(row):
+    """--all-features: the pre-shot event attributes and exact geometry, in the slot --context uses."""
+    yn = lambda v: "yes" if v else "no"
+    if row.assist_pass:
+        tags = [f"{row.assist_setpiece.lower()} delivery" if row.assist_setpiece else "",
+                "cross" if row.assist_cross else "", "cut-back" if row.assist_cutback else "",
+                "through ball" if row.assist_through else "", "switch of play" if row.assist_switch else "",
+                row.assist_height.lower() if row.assist_height else ""]
+        assist = ", ".join(t for t in tags if t) or "pass"
+    else:
+        assist = "no assist pass (for example a rebound, a dribble or a loose ball)"
+    return (f"Shot details from the event data (recorded before the ball was struck):\n"
+            f"- Body part: {row.body_part}; technique: {row.technique}; shot type: {row.shot_type}; "
+            f"play pattern: {row.play_pattern}\n"
+            f"- First-time shot: {yn(row.first_time)}; one-on-one: {yn(row.one_on_one)}; open goal: "
+            f"{yn(row.open_goal)}; under pressure: {yn(row.under_pressure)}; won an aerial duel: "
+            f"{yn(row.aerial_won)}; after a dribble: {yn(row.follows_dribble)}\n"
+            f"- Assist: {assist}\n"
+            f"- Distance to the centre of the goal: {row.distance:.1f} yards; angle between the posts: "
+            f"{math.degrees(row.angle):.0f} degrees; opponents in the triangle between the ball and the posts: "
+            f"{row.defenders_in_cone}; outfield opponents within 2 yards of the shooter: {row.close_opponents}\n"
+            f"- Goalkeeper: {row.gk_dist_goal_line:.1f} yards off the goal line, {row.gk_dist_shooter:.1f} yards "
+            f"from the shooter\n")
+
+
+def coords_block(row):
+    """--input coords: exactly what the image draws, as text. Shooter, keeper, other opponents and teammates
+    (the image's four marker types) in StatsBomb pitch coordinates; no player roles, no body part, nothing derived."""
+    xy = lambda loc: f"({loc[0]:.1f}, {loc[1]:.1f})"
+    is_gk = lambda q: (q.get("position") or {}).get("name") == "Goalkeeper"
+    gk = [q for q in row.ff if not q["teammate"] and is_gk(q)]
+    opp = [q for q in row.ff if not q["teammate"] and not is_gk(q)]
+    mates = [q for q in row.ff if q["teammate"]]
+    return ("Below are the positions of the players at the moment a shot is taken, as (x, y) coordinates in yards.\n"
+            "The pitch is 120 x 80 yards; the goal being attacked is at x = 120, with the posts at y = 36 and y = 44.\n"
+            f"Shooter: {xy((row.x, row.y))}\n"
+            f"Opposing goalkeeper: {xy(gk[0]['location']) if gk else 'not in the frame'}\n"
+            f"Other opponents: {', '.join(xy(q['location']) for q in opp) or 'none'}\n"
+            f"Teammates: {', '.join(xy(q['location']) for q in mates) or 'none'}\n")
+
+
 # ---------------------------------------------------------------- VLM backends
 @dataclass
 class Req:
-    image: str                                    # base64 PNG of the shot to evaluate
+    image: str                                    # base64 PNG of the shot to evaluate (None with --input coords)
     prompt: str
     examples: list = field(default_factory=list)  # [(base64 PNG, label text)] shown before the shot
 
     @property
     def image_sha1(self):
-        return hashlib.sha1(base64.b64decode(self.image)).hexdigest()[:16]
+        return hashlib.sha1(base64.b64decode(self.image)).hexdigest()[:16] if self.image else None
 
 
 @dataclass
@@ -294,7 +388,7 @@ def ask_anthropic(req, model, opt):
         content += [img(b64), {"type": "text", "text": label}]
     if content:   # cache the fixed example prefix (5-minute TTL; prefixes under 512 tokens are not cached)
         content[-1]["cache_control"] = {"type": "ephemeral"}
-    content += [img(req.image), {"type": "text", "text": req.prompt}]
+    content += ([img(req.image)] if req.image else []) + [{"type": "text", "text": req.prompt}]
     # Same request as the original zero-shot runs: no thinking/effort parameter unless --thinking-level is given.
     kw = dict(model=model, max_tokens=opt.max_tokens or 600, messages=[{"role": "user", "content": content}])
     if opt.thinking_level:
@@ -321,7 +415,7 @@ def gemini_parts(examples):
 def ask_gemini(req, model, opt):
     from google.genai import types
     client = get_client("gemini")
-    image = types.Part.from_bytes(data=base64.b64decode(req.image), mime_type="image/png")
+    image = types.Part.from_bytes(data=base64.b64decode(req.image), mime_type="image/png") if req.image else None
     cfg = dict(response_mime_type="application/json")   # as in the original Gemini 3.8 Flash run; no output cap
     if opt.thinking_level:
         cfg["thinking_config"] = types.ThinkingConfig(thinking_level=opt.thinking_level.upper())
@@ -334,8 +428,10 @@ def ask_gemini(req, model, opt):
             contents = [test]
         else:                     # same two turns, sent in full (implicit caching may still apply)
             contents = [types.Content(role="user", parts=gemini_parts(req.examples)), test]
-    else:
+    elif image is not None:
         contents = [image, req.prompt]   # identical to the original zero-shot call
+    else:
+        contents = [req.prompt]          # --input coords: text only
     resp = client.models.generate_content(model=model, contents=contents, config=types.GenerateContentConfig(**cfg))
     um = resp.usage_metadata
     prompt_t = um.prompt_token_count or 0
@@ -355,7 +451,7 @@ def ask_openai(req, model, opt):
     content = []
     for b64, label in req.examples:
         content += [img(b64), {"type": "input_text", "text": label}]
-    content += [img(req.image), {"type": "input_text", "text": req.prompt}]
+    content += ([img(req.image)] if req.image else []) + [{"type": "input_text", "text": req.prompt}]
     kw = dict(model=model, input=[{"role": "user", "content": content}],
               text={"format": {"type": "json_object"}})   # JSON mode, like the Gemini and Ollama runs
     if opt.thinking_level:
@@ -390,9 +486,11 @@ def ask_ollama(req, model, opt):
     else:   # identical to the original zero-shot Gemma run
         if opt.num_ctx:
             options["num_ctx"] = opt.num_ctx
-        r = requests.post("http://localhost:11434/api/generate", timeout=600,
-                          json={"model": model, "prompt": req.prompt, "images": [req.image],
-                                "stream": False, "format": "json", "think": False, "options": options}).json()
+        body = {"model": model, "prompt": req.prompt, "stream": False, "format": "json", "think": False,
+                "options": options}
+        if req.image:
+            body["images"] = [req.image]
+        r = requests.post("http://localhost:11434/api/generate", timeout=600, json=body).json()
         text = r["response"]
     finish = r.get("done_reason", "")
     raw = {k: r.get(k) for k in ("prompt_eval_count", "eval_count", "total_duration") if k in r}
@@ -552,7 +650,9 @@ def cost_row(run, cfg, out_dir, status, notes=""):
         date=(days[0] if len(days) == 1 else f"{days[0]}..{days[-1]}") if days else "",
         stage=cfg.get("stage", ""), run=run, provider=cfg["backend"], model=cfg["model"],
         thinking_level=cfg.get("thinking_level") or "not set", k=cfg.get("shots", 0),
-        example_set=cfg.get("example_set") if cfg.get("shots") else "", context=cfg.get("context", False),
+        example_set=cfg.get("example_set") if cfg.get("shots") else "",
+        context="all pre-shot features" if cfg.get("all_features") else (
+            "coordinates as text (no image)" if cfg.get("input") == "coords" else cfg.get("context", False)),
         max_output_tokens=cfg.get("max_output_tokens"), shots_queried=len({c["shot_id"] for c in api}),
         shots_answered=len(answers), calls=len(api), failed_calls=sum(not c.get("ok") for c in api),
         incomplete_flagged=sum(bool(a.get("incomplete")) for a in answers),
@@ -730,6 +830,10 @@ def main():
     ap.add_argument("--model", default="claude-sonnet-5-5",
                     help="e.g. claude-opus-5-5, gemini-4-carbon, gpt-6.2-astra, or a local tag like gemma4:26b")
     ap.add_argument("--context", action="store_true", help="also tell the VLM the body part")
+    ap.add_argument("--all-features", action="store_true",
+                    help="also give the VLM every pre-shot event attribute and the exact geometry (oracle perception)")
+    ap.add_argument("--input", choices=["image", "coords"], default="image",
+                    help="coords: no image; the freeze frame is given as (x, y) coordinates in text instead")
     ap.add_argument("--shots", type=int, default=0, help="few-shot examples per prompt (0 = zero-shot)")
     ap.add_argument("--example-set", default="A", choices=list(EXAMPLE_FILES), help="which fixed example set")
     ap.add_argument("--thinking-level", choices=["minimal", "low", "medium", "high", "xhigh", "max"],
@@ -750,7 +854,13 @@ def main():
     ap.add_argument("--refresh-data", action="store_true", help="re-download StatsBomb data instead of data_cache/")
     a = ap.parse_args()
 
-    slug = re.sub(r"[^A-Za-z0-9.]+", "_", a.model) + ("_context" if a.context else "")
+    if a.context and a.all_features:
+        sys.exit("--all-features already includes the body part; use one of --context / --all-features")
+    coords = a.input == "coords"
+    if coords and (a.shots or a.context or a.all_features):
+        sys.exit("--input coords is zero-shot with the coordinates only (no --shots, --context or --all-features)")
+    slug = re.sub(r"[^A-Za-z0-9.]+", "_", a.model) + ("_context" if a.context else "") + \
+        ("_allfeat" if a.all_features else "") + ("_coords" if coords else "")
     if a.shots:
         slug += f"_k{a.shots}" + ("" if a.example_set == "A" else f"_set{a.example_set}")
     if a.tag:
@@ -782,6 +892,8 @@ def main():
     if a.shots:
         examples, ex_spec, ex_ids = load_examples(a.example_set, a.shots, shots, sample, a.context)
     prompt_tmpl = PROMPT.replace("{context}", (FEWSHOT_LINE if a.shots else "") + "{context}")
+    if coords:
+        prompt_tmpl = PROMPT_COORDS
 
     import importlib.metadata as md
     versions = {}
@@ -796,6 +908,10 @@ def main():
                thinking_level=a.thinking_level, max_output_tokens=max_out if max_out else "none",
                seed=a.seed, comp=a.comp, season=a.season,
                prompt_sha=hashlib.sha1((prompt_tmpl + json.dumps(OUTCOME)).encode()).hexdigest()[:12])
+    if a.all_features:
+        cfg["all_features"] = True
+    if coords:           # key only when set, so older run_config.json files still match
+        cfg["input"] = "coords"
     fixed = list(cfg)
     old = {}
     if os.path.exists(cfg_path):
@@ -834,7 +950,10 @@ def main():
 
     reqs = []   # render in the main thread (matplotlib is not thread-safe)
     for row in todo:
-        ctx = f"Body part used: {row.body_part}.\n" if a.context else ""
+        if coords:
+            reqs.append((row.shot_id, Req(image=None, prompt=prompt_tmpl.format(coords=coords_block(row), context=""))))
+            continue
+        ctx = f"Body part used: {row.body_part}.\n" if a.context else (features_block(row) if a.all_features else "")
         reqs.append((row.shot_id, Req(image=image_b64(row), prompt=prompt_tmpl.format(context=ctx), examples=examples)))
 
     cache_name, cache_note = None, ""
@@ -914,7 +1033,9 @@ def main():
              f"observed goal rate {sample.goal.mean():.3f}")
     mode = "zero-shot" if not a.shots else (f"few-shot k={a.shots} (example set {a.example_set}, seed "
                                             f"{ex_spec['seed']}, {EXAMPLE_FILES[a.example_set]})")
-    L.append(f"VLM: {a.backend}/{a.model}, {mode}, context={'body part' if a.context else 'image only'}")
+    ctx_name = "body part" if a.context else ("all pre-shot features + exact geometry" if a.all_features else
+                                              ("coordinates as text, no image" if coords else "image only"))
+    L.append(f"VLM: {a.backend}/{a.model}, {mode}, context={ctx_name}")
     if a.backend == "anthropic" and not a.thinking_level:
         think = ("not set: no thinking or effort parameter sent, as in the original Opus/Sonnet runs "
                  "(Opus 5.5 always thinks at its default effort, medium; thinking counts toward max_tokens)")

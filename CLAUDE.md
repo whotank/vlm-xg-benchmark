@@ -23,20 +23,33 @@ from an image of a shot situation alone, and where they diverge from established
 - References: StatsBomb xG, and a logistic baseline (distance, angle, header, defenders in the
   shooting cone) with 5-fold cross-validation grouped by match (no leakage). The match folds are frozen
   in `results/baseline_folds.json` (see gotchas).
+- Map-only baseline: the same logistic model without the header flag (distance, angle, defenders in the
+  cone; same frozen folds; `baselines.py`). It uses only information drawn in the image, so it is the fair
+  statistical counterpart of the image-only VLMs: it is in fact a subset of what the VLM sees (the VLM also
+  sees the keeper and every other player), but with exact values where the VLM has to read the pixels. The
+  original baseline and StatsBomb also use information the image does not show (header flag; StatsBomb also
+  technique, set-piece type, assist type, ...), so comparisons against them favour the statistical models.
 
 ## Files
 - `xg_vlm_pilot.py`: full pipeline (load, render, query VLM, evaluate). One run per model and setting.
   Backends: anthropic, gemini, openai, ollama. Options: `--shots k`, `--example-set A|B`, `--context`,
-  `--thinking-level`, `--workers`, `--tag`, `--stage`; budget guard and cost logging are built in.
+  `--all-features`, `--input image|coords`, `--thinking-level`, `--workers`, `--tag`, `--stage`; budget guard
+  and cost logging are built in.
 - `make_fewshot_examples.py`: chooses the fixed, nested few-shot example sets.
-- `compare_models.py`: all finished runs on the common shots, match-clustered bootstrap CIs, distance bands;
-  `--figures` redraws Figure 1, `figure_frontier.png` and `figure_forest.png`.
-- `recalibrate.py`, `fewshot_analysis.py`, `context_ablation.py`, `cost_summary.py`: side analyses.
+- `baselines.py`: map-only baseline and the all-pre-shot-features logistic model (frozen folds) ->
+  `results/baselines.{csv,md}`; `compare_models.py` adds both as reference rows.
+- `compare_models.py`: all finished runs on the common shots, match-clustered bootstrap CIs, paired differences
+  vs StatsBomb, the baseline and the map-only baseline, distance bands; `--figures` redraws Figure 1,
+  `figure_frontier.png` and `figure_forest.png`.
+- `recalibrate.py`, `fewshot_analysis.py`, `context_ablation.py`, `features_ablation.py`, `coords_analysis.py`,
+  `error_analysis.py`, `cost_summary.py`: side analyses (one markdown table each in `results/`).
 - `results/<run>/`: `summary.txt`, `shots.csv` (per-shot predictions and rationales), `vlm_cache.jsonl`
   (answers; newer runs also store token usage, cost and the SHA-1 of the image sent), and for newer runs
   `calls.jsonl` (every API call, including failures) and `run_config.json` (settings and invocations).
 - `results/main_table.{md,csv}`, `paired_differences.csv`, `distance_bands.{md,csv}`, `recalibration.{md,csv}`,
-  `fewshot.{md,csv}`, `context_ablation.{md,csv}`, `cost_summary.md`, `cost_log.csv`.
+  `fewshot.{md,csv}`, `context_ablation.{md,csv}`, `features_ablation.{md,csv}`, `coords_vs_image.{md,csv}`,
+  `error_analysis.md` (+ `error_analysis_shots.csv`, `figure_error_gallery.png`), `baselines.{md,csv}`,
+  `cost_summary.md`, `cost_log.csv`.
 - `results/fewshot_examples.json` (set A, seed 1), `results/fewshot_examples_setB.json` (set B, seed 2).
 - `results/figure1.png`: Figure 1 of the abstract (unchanged). `results/figure_frontier.png`,
   `results/figure_forest.png`: full-paper figures.
@@ -55,11 +68,14 @@ python xg_vlm_pilot.py --backend ollama --model gemma4:26b --n 300   # needs a G
 python xg_vlm_pilot.py --backend anthropic --model claude-opus-5-5 --shots 5            # few-shot, set A
 python xg_vlm_pilot.py --backend anthropic --model claude-opus-5-5 --shots 5 --example-set B
 python xg_vlm_pilot.py --backend anthropic --model claude-opus-5-5 --context            # body part given
-python compare_models.py && python recalibrate.py && python fewshot_analysis.py
-python context_ablation.py && python cost_summary.py
+python xg_vlm_pilot.py --backend anthropic --model claude-opus-5-5 --all-features       # + every pre-shot attribute
+python xg_vlm_pilot.py --backend anthropic --model claude-opus-5-5 --input coords       # freeze frame as text, no image
+python baselines.py && python compare_models.py && python recalibrate.py && python fewshot_analysis.py
+python context_ablation.py && python features_ablation.py && python coords_analysis.py
+python error_analysis.py && python cost_summary.py
 ```
 Answers are cached per run in `results/<run>/vlm_cache.jsonl`; reruns only query missing shots.
-Folder names: `<model>` + `_context` + `_k{n}` (+ `_setB`) + `_<tag>`.
+Folder names: `<model>` + `_context` / `_allfeat` / `_coords` + `_k{n}` (+ `_setB`) + `_<tag>`.
 
 ## Results (298 common shots; 95% match-clustered bootstrap CIs; full tables in `results/*.md`)
 Zero-shot, image only:
@@ -165,6 +181,36 @@ Recorded so the paper's methods section and later runs stay consistent.
 ### Body-part context (Stage 5)
 - `--context` adds one line, "Body part used: <part>.", before the estimate request; nothing else changes.
   Compared within model for Opus 5.5 and Gemini 4 Carbon (zero-shot): `results/context_ablation.md`.
+
+### All pre-shot features (VLM judgment with perfect perception; added Nov 27)
+- Question: given everything StatsBomb's model knows before the strike, does a VLM judge better than a
+  statistical model? `--all-features` keeps the image and the zero-shot prompt and puts a text block in the
+  context slot: body part, technique, shot type, play pattern; first-time / one-on-one / open goal / under
+  pressure / aerial won / after a dribble; the assist (none, height, cross, cut-back, through ball, switch,
+  set-piece delivery); distance, goal angle, opponents in the cone, outfield opponents within 2 yd; keeper
+  distance from the goal line and from the shooter. Nothing recorded after the strike (end location,
+  deflection, save details, outcome) and never StatsBomb's xG.
+- Control: `Logistic, all pre-shot features` (same attributes, standardised, L2, C = 1, frozen folds).
+- Runs: Opus 5.5, Gemini 4 Carbon (thinking medium), GPT-6.2 Astra (reasoning medium), 300 shots,
+  `<model>_allfeat`. Analysis: `results/features_ablation.md` (who-sees-what table, information x model grid).
+
+### Coordinates as text (perception vs judgment; added Nov 27)
+- `--input coords` drops the image and replaces the three prompt lines that describe it with the same freeze
+  frame as text: pitch 120 x 80 yards, goal at x = 120 with posts at y = 36 and y = 44, then the shooter, the
+  opposing goalkeeper, the other opponents and the teammates as (x, y) to one decimal, in freeze-frame order.
+  No player roles, no body part, nothing derived (no distances or angles). The role line, the task lines and
+  the JSON line are identical to the image prompt.
+- Runs: Opus 5.5 (no thinking parameter, max_tokens 600) and Gemini 4 Carbon (thinking medium), 300 shots,
+  `<model>_coords`. Analysis: `results/coords_vs_image.md`, overall and by distance band. Rule fixed before
+  the runs: if the 6-12 yd over-estimate shrinks with coordinates, reading the picture was the problem; if
+  not, it is judgment (or the step from raw coordinates to geometry, which the all-features runs remove).
+
+### Error analysis (added Nov 27, no API calls)
+- Frontier = the five zero-shot models with Brier <= 0.111 (Carbon, Neon, GPT-6.2 Astra, Opus, Hydrogen).
+  Per shot: gap = frontier mean - StatsBomb; excess Brier = (frontier mean - goal)^2 - (StatsBomb - goal)^2.
+  Group shares of the excess, an OLS of the gap on standardised features (goal angle and keeper-to-shooter
+  distance left out: collinear with distance and keeper position) with match-clustered CIs, correlation of the
+  models' gaps, a gallery of the largest consensus disagreements, rationale phrases. `results/error_analysis.md`.
 
 ### Model settings
 - Claude Opus 5.5: same request as the original run (no thinking or effort parameter, `max_tokens` 600; Opus 5.5

@@ -21,7 +21,8 @@ def main():
     d["per_shot"] = d.cost_usd / d.shots_answered.where(d.shots_answered > 0)
     d["settings"] = [", ".join(x for x in [f"thinking {t}" if t != "not set" else "",
                                            f"k={k}" + (f" set {e}" if isinstance(e, str) and e else "") if int(k) else "",
-                                           "body part" if str(c) == "True" else ""] if x) or "zero-shot"
+                                           "body part" if str(c) == "True" else (str(c) if str(c) not in ("False", "nan", "") else "")]
+                                          if x) or "zero-shot"
                      for t, k, e, c in zip(d.thinking_level, d.k, d.example_set, d.context)]
     lat = {}
     for run in d.run:
