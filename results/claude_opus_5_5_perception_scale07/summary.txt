@@ -1,0 +1,8 @@
+Task: perception (perception: read distance, angle, opponents in triangle from the image)
+Model: anthropic/claude-opus-5-5; thinking/reasoning level: not set; max output tokens: 1500
+Sample: the xG runs' 300-shot sample (random_state=7); answered 30 of 30
+API usage: 30 calls, 0 failed; cost $0.4182
+
+Distance read - true: mean +0.05 yd, mean absolute 0.17 yd
+Angle read - true: mean -0.2 deg, mean absolute 0.7 deg
+Opponents in triangle: exact 0.87, mean read - true +0.07
