@@ -1,0 +1,78 @@
+Data: StatsBomb open data, competition 43, season 106
+All non-penalty shots with freeze frames: 1430 (152 goals)
+VLM sample: 300 shots (42 goals), observed goal rate 0.140
+VLM: gemini/gemini-4-carbon, zero-shot, context=body part
+Settings: thinking/reasoning level = medium; max output tokens = none; sampling = provider default
+Gemini: response_mime_type=application/json
+API usage, all invocations of this run: 300 calls, 0 failed, 0 accepted answers flagged incomplete; tokens: input 388134, cache writes 0, cached input 0, output 42395 (of which thinking 28784)
+Cost: $1.2002 at 2.0/10.0 USD per 1M input/output tokens (third-party (layer3labs.io, aipricing.guru, braindetox.kr via web search; Google's pricing page unreachable here): $2/$10 to 2026-11-30, $4/$20 from 2026-12-01; cached input assumed at 5% of input, 2026-11-27)
+
+model              AUC    Brier  LogLoss   MeanXG
+vlm_xg           0.758   0.1028   0.3501    0.097
+sb_xg            0.793   0.0989   0.3378    0.100
+baseline_xg      0.768   0.1050   0.3494    0.108
+
+Brier(VLM) - Brier(StatsBomb) = +0.0040  (95% shot-level bootstrap CI -0.0007 to +0.0088)
+Brier(VLM) - Brier(baseline)  = -0.0022  (95% shot-level bootstrap CI -0.0070 to +0.0030)
+(match-clustered intervals for all runs: results/main_table.md, from compare_models.py)
+Spearman rho, VLM vs StatsBomb xG: 0.891
+Mean gap (VLM - StatsBomb): -0.003; mean absolute gap: 0.032
+
+Disagreement by body_part:
+              n  goals    vlm  statsbomb  mean_gap
+body_part                                         
+Head         63      7  0.117      0.098     0.020
+Left Foot    93     15  0.077      0.086    -0.009
+Other         3      0  0.363      0.379    -0.015
+Right Foot  141     20  0.096      0.104    -0.009
+
+Disagreement by play_pattern:
+                  n  goals    vlm  statsbomb  mean_gap
+play_pattern                                          
+From Corner      52      5  0.111      0.100     0.011
+From Counter     10      3  0.205      0.235    -0.030
+From Free Kick   58      7  0.072      0.060     0.012
+From Goal Kick   18      5  0.070      0.085    -0.015
+From Keeper       3      0  0.093      0.140    -0.047
+From Kick Off     2      0  0.055      0.034     0.021
+From Throw In    55      6  0.079      0.076     0.003
+Regular Play    102     16  0.109      0.125    -0.016
+
+Disagreement by cone_bin:
+            n  goals    vlm  statsbomb  mean_gap
+cone_bin                                        
+0           8      5  0.410      0.489    -0.079
+1         137     26  0.125      0.133    -0.008
+2         104      8  0.063      0.056     0.007
+3+         51      3  0.044      0.040     0.004
+
+Disagreement by dist_bin:
+           n  goals    vlm  statsbomb  mean_gap
+dist_bin                                       
+<6         8      4  0.440      0.480    -0.040
+6-12      77     14  0.164      0.168    -0.004
+12-18     81     18  0.098      0.101    -0.004
+18-25     69      4  0.047      0.049    -0.002
+25+       65      2  0.027      0.024     0.004
+
+Largest VLM over-estimates:
+                             shot_id  goal  sb_xg  vlm_xg   gap  body_part  distance  defenders_in_cone                                                                                                                                                                        vlm_reason
+02c29470-d751-4a39-b438-d7f2d1de3f23     1  0.310    0.42 0.110  Left Foot     7.305                  1   The shot is taken with the foot from very close, central range on the edge of the six-yard box with an unobstructed path to the goalkeeper, despite close pressure from behind.
+641eb264-6cf2-4608-a8b8-5c2405194994     0  0.271    0.38 0.109       Head     3.970                  1                  Despite being a header in a crowded six-yard box with the goalkeeper directly in front, the extremely close range gives this shot a high probability of scoring.
+21b0a72e-9edd-405b-a6aa-edf3c20ff8e3     0  0.036    0.14 0.104  Left Foot    13.231                  2          Close-range left-footed shot from the edge of the six-yard box, heavily pressured by an adjacent defender and a narrow angle with the goalkeeper covering the near post.
+ac8b083c-950f-4978-8497-8f60b4b4fe6d     0  0.279    0.38 0.101 Right Foot     8.420                  1                                           Close-range right-footed shot on the edge of the six-yard box, though heavily pressured by an adjacent defender and a close goalkeeper.
+4c292e31-05ce-4f6f-a5d1-5e5d408b26e6     0  0.124    0.21 0.086       Head     6.912                  1 A close-range central header from the edge of the six-yard box, though xG is moderated by being a header under heavy defensive pressure with the goalkeeper centrally positioned.
+b1309c1c-2272-43ac-a0a6-c9f358d70c18     0  0.047    0.12 0.073      Other    10.462                  2              Although taken from close range just outside the six-yard box, this corner-kick effort uses an unconventional body part while heavily crowded by multiple defenders.
+21b51419-7d6c-443b-8107-2c90cb73bdbc     0  0.049    0.12 0.071       Head    10.112                  2                            A close-range header from the edge of the six-yard box, though heavily contested with multiple defenders and the goalkeeper blocking the path to goal.
+654f8fdc-223a-4074-9ac3-bf5ccbd27083     0  0.070    0.14 0.070       Head     8.836                  1                                    Central header from around eight yards out, though heavily contested by nearby defenders with the goalkeeper positioned centrally on the line.
+
+Largest VLM under-estimates:
+                             shot_id  goal  sb_xg  vlm_xg    gap  body_part  distance  defenders_in_cone                                                                                                                                                                                     vlm_reason
+70fe857d-6f28-4b38-8ad7-a655328ec176     1  0.727    0.48 -0.247 Right Foot     6.401                  1 The right-footed shot is taken from point-blank range on the edge of the six-yard box with no outfield defenders blocking the goal and the goalkeeper positioned slightly toward the far post.
+19a225eb-4436-4a53-a354-3b40dfa6ca31     1  0.711    0.48 -0.231       Head     3.360                  0          The header is taken from point-blank range inside the six-yard box, though heavy congestion from an immediate defender and the goalkeeper slightly limits the conversion probability.
+eb01f465-08f6-4adf-a1b8-865127b41a97     1  0.408    0.18 -0.228  Left Foot    12.860                  1                                                             Close-range left-footed shot from the right side of the box, though the goalkeeper and nearby defenders narrow the shooting angle.
+be17203f-f93a-4a28-9704-0d0783b29be2     1  0.897    0.68 -0.217 Right Foot     6.403                  0         The shooter is centrally positioned on the edge of the six-yard box with the goalkeeper completely out of position and most of the goal unguarded, despite tight pressure from behind.
+d53ccaf1-0307-4067-946b-d514978dfae2     1  0.791    0.58 -0.211 Right Foot     4.428                  0                            The shot is taken with the right foot from point-blank range centrally inside the six-yard box, though the goalkeeper is immediately adjacent to smother the angle.
+ed57db75-dfc9-4bf5-8f72-c85a80bb9829     0  0.455    0.25 -0.205  Left Foot     6.824                  1                                                Close-range left-footed shot from the edge of the six-yard box, though heavily pressured by multiple nearby defenders and a central goalkeeper.
+1d0a8857-a8ba-461f-9e98-de32270f52c7     1  0.516    0.32 -0.196 Right Foot    10.481                  1                                   The shooter is centrally positioned just nine yards out in a one-on-one situation, though the advancing goalkeeper significantly narrows the shooting angle.
+3a9a382c-c6fc-4f96-9b1e-9eae06af8ebb     0  0.332    0.15 -0.182 Right Foot     8.901                  2            Despite the central close-range location around nine yards out, heavy traffic of defenders and teammates directly in front of the goal significantly reduces the chance of scoring.
