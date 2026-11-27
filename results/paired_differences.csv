@@ -134,6 +134,15 @@ GPT-6.2 Astra + all pre-shot features,all features,Map-only baseline,logloss,-0.
 "Gemini 4 Carbon, coordinates as text",coordinates,Map-only baseline,auc,0.0337611607142857,-0.00347006365136131,0.06850544450253138,0.081
 "Gemini 4 Carbon, coordinates as text",coordinates,Map-only baseline,brier,-0.004963441329715934,-0.011445699214122022,0.0006334711141818498,0.081
 "Gemini 4 Carbon, coordinates as text",coordinates,Map-only baseline,logloss,-0.010287022124944312,-0.029351301824861824,0.007958260361646695,0.251
+"GPT-6.2 Astra, measure first",measure first,StatsBomb xG,auc,-0.06133742559523814,-0.10786740777581297,-0.016875286653812178,0.006
+"GPT-6.2 Astra, measure first",measure first,StatsBomb xG,brier,0.010512960056753062,-0.0007066630984317752,0.019753292341645166,0.066
+"GPT-6.2 Astra, measure first",measure first,StatsBomb xG,logloss,0.02727103556617111,-0.004583306616449644,0.055506109047132726,0.093
+"GPT-6.2 Astra, measure first",measure first,Logistic baseline,auc,-0.03724888392857151,-0.08815101252331461,0.009846099204617447,0.126
+"GPT-6.2 Astra, measure first",measure first,Logistic baseline,brier,0.004344464056922945,-0.0070739189961900074,0.014004700720272737,0.426
+"GPT-6.2 Astra, measure first",measure first,Logistic baseline,logloss,0.015817776867275257,-0.01961885505102994,0.04600123697095725,0.342
+"GPT-6.2 Astra, measure first",measure first,Map-only baseline,auc,0.01009114583333326,-0.026321130030959726,0.04358623859836608,0.579
+"GPT-6.2 Astra, measure first",measure first,Map-only baseline,brier,-0.0001886896518635689,-0.009015500841297508,0.007909850361282524,0.95
+"GPT-6.2 Astra, measure first",measure first,Map-only baseline,logloss,-0.0024952814259524003,-0.031250876419348914,0.021687769374180002,0.844
 "Claude Opus 5.5, k=1",few-shot set A,StatsBomb xG,auc,-0.07110305059523814,-0.1251720742630647,-0.010800411122818558,0.024
 "Claude Opus 5.5, k=1",few-shot set A,StatsBomb xG,brier,0.01073904730507523,0.0015851654094056898,0.019618929086789742,0.021
 "Claude Opus 5.5, k=1",few-shot set A,StatsBomb xG,logloss,0.03577502132185667,0.0054352336030499505,0.06512697141789918,0.021

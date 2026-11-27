@@ -1,6 +1,6 @@
 # API spend
 
-From `results/cost_log.csv` (38 rows), rebuilt from each run's `calls.jsonl` every time this script runs (rows without a run folder, the one-call setup checks, are kept as logged). Output tokens include thinking/reasoning tokens, which all three providers bill as output; the thinking column is the part the provider reports as thinking. Prices and sources per row are in the log. Gemma runs locally (no API cost). Latency = seconds per API call (median / 90th percentile) with parallel workers, including provider-side queueing.
+From `results/cost_log.csv` (39 rows), rebuilt from each run's `calls.jsonl` every time this script runs (rows without a run folder, the one-call setup checks, are kept as logged). Output tokens include thinking/reasoning tokens, which all three providers bill as output; the thinking column is the part the provider reports as thinking. Prices and sources per row are in the log. Gemma runs locally (no API cost). Latency = seconds per API call (median / 90th percentile) with parallel workers, including provider-side queueing.
 
 ## Per run
 
@@ -41,6 +41,7 @@ From `results/cost_log.csv` (38 rows), rebuilt from each run's `calls.jsonl` eve
 | probe: contamination | probe_recall_gemini_4_carbon | thinking medium, probe: recall the shot from match, clock and player (text only) | 84 | 84 (0) | 29,045 | 0 | 0 | 24,788 (18,593) | $0.31 | $0.0036 | 7 / 10 | complete |
 | probe: contamination | probe_identify_gpt_6.2_astra | thinking medium, probe: identify the match from the image | 84 | 84 (0) | 42,588 | 0 | 0 | 6,699 (2,251) | $0.61 | $0.0072 | 4 / 6 | complete |
 | probe: contamination | probe_recall_gpt_6.2_astra | thinking medium, probe: recall the shot from match, clock and player (text only) | 84 | 84 (0) | 20,230 | 0 | 0 | 5,908 (985) | $0.40 | $0.0047 | 3 / 4 | complete |
+| review: measure first, then xG | gpt_6.2_astra_measure | thinking medium, measure first, then xG (image) | 300 | 300 (0) | 165,300 | 0 | 0 | 73,325 (54,756) | $4.26 | $0.0142 | 7 / 14 | complete |
 | setup: smoke test | setup_smoke_anthropic | zero-shot | 1 | 1 (0) | 507 | 0 | 0 | 151 (81) | $0.01 | $0.0050 |  | complete |
 | setup: smoke test | setup_smoke_gemini | thinking medium | 1 | 1 (0) | 1,286 | 0 | 0 | 606 (561) | $0.01 | $0.0065 |  | complete |
 | setup: smoke test | setup_smoke_openai | thinking medium | 1 | 1 (0) | 401 | 0 | 0 | 43 (0) | $0.00 | $0.0049 |  | complete |
@@ -60,6 +61,7 @@ From `results/cost_log.csv` (38 rows), rebuilt from each run's `calls.jsonl` eve
 | hybrid: perception sanity check (0.7x) | 1 | 30 | $0.42 |
 | optional: GPT-6.2 Astra zero-shot | 1 | 300 | $1.78 |
 | probe: contamination | 6 | 504 | $3.38 |
+| review: measure first, then xG | 1 | 300 | $4.26 |
 | setup: smoke test | 3 | 3 | $0.02 |
 
 ## Per provider
@@ -68,6 +70,6 @@ From `results/cost_log.csv` (38 rows), rebuilt from each run's `calls.jsonl` eve
 |---|---|---|---|---|---|
 | anthropic | 15 | 3,505 (0) | $26.64 | $30 | $3.36 |
 | gemini | 17 | 4,219 (0) | $45.83 | $50 | $4.17 |
-| openai | 6 | 1,069 (0) | $8.66 | $30 | $21.34 |
-| **Total** | 38 | 8,793 (0) | **$81.12** | $100 | $18.88 |
+| openai | 7 | 1,369 (0) | $12.91 | $30 | $17.09 |
+| **Total** | 39 | 9,093 (0) | **$85.38** | $100 | $14.62 |
 

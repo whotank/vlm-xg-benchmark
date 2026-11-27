@@ -73,6 +73,14 @@ Thinking tokens per shot when measuring vs in the xG request: Opus 568 vs 159, C
 What the hybrid establishes is that the geometry is readable from the image, not that the models use it when they
 estimate xG.
 
+**Measuring first does not help.** We therefore asked GPT-6.2 Astra to measure the three quantities and then give
+its xG, in one request. It read the geometry as precisely as before (0.07 yards, 0.2°, 90% of opponents counted
+exactly) and thought seven times as long (183 vs 25 tokens per shot). Its estimates did not improve: ΔBrier against
+its zero-shot run +0.002 [−0.000, +0.005], AUC 0.731 vs 0.733, mean xG 0.150 vs 0.148. At 6–12 yards it still rated
+headers 0.31 and foot shots 0.30, where its own readings, scored by the map-only model, give 0.19 and 0.21 (StatsBomb
+0.095 and 0.271). With the correct geometry in the same answer, the close-range error lies in how the model turns
+geometry into a probability, together with the missing body part, not in what it sees.
+
 **The models remember the World Cup; our images rarely give the match away.** Told only the match, the minute and
 the shooter (probe B), Opus, Carbon and GPT-6.2 Astra classify all 84 shots correctly: 42 of 42 goals and 42 of 42
 misses (AUC 1.000, against 0.790 for StatsBomb xG on the same shots). They claim to remember every goal but only
@@ -115,7 +123,7 @@ recognises the match before any frame-based estimate is interpreted.
 
 ## Caveats to state in the paper
 
-- No correction for multiple comparisons. The main table alone has 96 paired ΔBrier tests, 34 of them below 0.05;
+- No correction for multiple comparisons. The main table alone has 99 paired ΔBrier tests, 34 of them below 0.05;
   single p-values near 0.05 are descriptive.
 - Gemini 4 Carbon was selected as the best Gemini 4 on the same 298 shots it is evaluated on.
 - "Not significantly worse than StatsBomb" is fragile. Carbon is +0.006 [−0.002, +0.012]; Carbon with the body

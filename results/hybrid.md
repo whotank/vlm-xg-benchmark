@@ -146,8 +146,35 @@ The rendered images have 5.9 pixels per yard (from the renderer's transform; 539
 
 Distance error in pixels: 0.65 px at full size, 0.70 px at 0.7x; in yards it grew by a factor of 1.53 (1/0.7 = 1.43). The error follows the pixel grid: the model locates the markers to under a pixel at both sizes, so the readings are measured off the image.
 
+## Measure first, then estimate: GPT-6.2 Astra (298 shots, 42 goals)
+
+One request: the zero-shot image and prompt, with the measuring instructions of the perception task inserted before the estimate request and the three readings added to the JSON (`xg_vlm_pilot.py --measure-first`, folder `gpt_6.2_astra_measure`).
+
+Readings in this request: distance MAE 0.07 yd, angle MAE 0.2°, opponents exact 90% (separate measuring request on the same 298 shots: 0.07 yd, 0.2°, 91%).
+
+| Scored by | AUC | Brier | Mean xG | ΔBrier vs zero-shot | p | ΔBrier vs map-only | p |
+|---|---|---|---|---|---|---|---|
+| Zero-shot xG (same model) | 0.733 [0.642, 0.816] | 0.108 [0.080, 0.139] | 0.148 |  |  | −0.002 [−0.011, +0.006] | 0.613 |
+| Measure first, then xG | 0.731 [0.644, 0.813] | 0.110 [0.082, 0.142] | 0.150 | +0.002 [−0.000, +0.005] | 0.125 | −0.000 [−0.009, +0.008] | 0.950 |
+| Hybrid on the readings of the same request | 0.709 [0.621, 0.799] | 0.111 [0.077, 0.148] | 0.109 | +0.003 [−0.006, +0.012] | 0.549 | +0.000 [−0.001, +0.002] | 0.436 |
+| Map-only baseline (true geometry) | 0.721 [0.636, 0.808] | 0.110 [0.078, 0.147] | 0.111 | +0.002 [−0.006, +0.011] | 0.613 |  |  |
+| StatsBomb xG | 0.792 [0.704, 0.867] | 0.100 [0.069, 0.136] | 0.100 | −0.009 [−0.018, +0.002] | 0.109 | −0.011 [−0.018, −0.003] | 0.003 |
+
+Mean xG at 6–12 yd by body part:
+
+| Scored by | Headers (45) | Foot shots (32) |
+|---|---|---|
+| Zero-shot xG (same model) | 0.298 | 0.298 |
+| Measure first, then xG | 0.312 | 0.300 |
+| Hybrid on the readings of the same request | 0.190 | 0.212 |
+| Map-only baseline (true geometry) | 0.196 | 0.215 |
+| StatsBomb xG | 0.095 | 0.271 |
+
+Thinking tokens per shot: 183 (zero-shot xG request: 25).
+
 ## Reading
 
+- Measure first (GPT-6.2 Astra, 298 shots): reading the geometry in the same request changes Brier by +0.0020 [−0.0005, +0.0046] vs the zero-shot run (not significant, p = 0.125); AUC 0.731 vs 0.733; mean xG 0.150 vs 0.148. Against the map-only baseline: −0.0002 [−0.0090, +0.0079]. At 6–12 yd, headers 0.298 → 0.312, foot shots 0.298 → 0.300 (zero-shot → measure first). Thinking per shot 25 → 183 tokens; distance read to 0.07 yd.
 - Claude Opus 5.5 (298 shots): distance read with a mean absolute error of 0.12 yd (bias at 6–12 yd −0.06 yd), angle 0.4°, opponents exact in 83%. Scored by the logistic model, the readings cost +0.0016 Brier against the true geometry (not significant; AUC 0.695 vs 0.721). The model's own xG differs from the hybrid by −0.0008 (not significant; AUC 0.721). At 6–12 yd, headers (45): StatsBomb 0.095, map-only 0.196, hybrid 0.198, the model 0.225; foot shots (32): StatsBomb 0.271, map-only 0.215, hybrid 0.213, the model 0.215. Per shot, distance misreading and the direct xG's gap to the map-only baseline correlate at ρ = −0.10 (6–12 yd: −0.22).
 - Gemini 4 Carbon (150 shots): distance read with a mean absolute error of 0.13 yd (bias at 6–12 yd −0.02 yd), angle 0.3°, opponents exact in 83%. Scored by the logistic model, the readings cost +0.0018 Brier against the true geometry (not significant; AUC 0.697 vs 0.717). The model's own xG differs from the hybrid by −0.0045 (not significant; AUC 0.723). At 6–12 yd, headers (23): StatsBomb 0.076, map-only 0.183, hybrid 0.172, the model 0.160; foot shots (18): StatsBomb 0.220, map-only 0.205, hybrid 0.205, the model 0.192. Per shot, distance misreading and the direct xG's gap to the map-only baseline correlate at ρ = −0.10 (6–12 yd: 0.02).
 - GPT-6.2 Astra (298 shots): distance read with a mean absolute error of 0.07 yd (bias at 6–12 yd −0.00 yd), angle 0.2°, opponents exact in 91%. Scored by the logistic model, the readings cost +0.0007 Brier against the true geometry (not significant; AUC 0.708 vs 0.721). The model's own xG differs from the hybrid by −0.0028 (not significant; AUC 0.733). At 6–12 yd, headers (45): StatsBomb 0.095, map-only 0.196, hybrid 0.193, the model 0.298; foot shots (32): StatsBomb 0.271, map-only 0.215, hybrid 0.215, the model 0.298. Per shot, distance misreading and the direct xG's gap to the map-only baseline correlate at ρ = −0.14 (6–12 yd: −0.16).

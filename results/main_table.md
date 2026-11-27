@@ -62,6 +62,12 @@ References: StatsBomb xG; the logistic baseline (distance, angle, header, defend
 | Claude Opus 5.5, coordinates as text | 0.721 [0.632, 0.805] | 0.111 [0.077, 0.150] | 0.385 [0.278, 0.506] | 0.082 [0.072, 0.093] | +0.012 [+0.002, +0.022] | 0.016 | +0.005 [−0.004, +0.016] | 0.266 | +0.001 [−0.005, +0.007] | 0.805 |
 | Gemini 4 Carbon, coordinates as text | 0.754 [0.672, 0.831] | 0.105 [0.073, 0.142] | 0.359 [0.263, 0.471] | 0.104 [0.089, 0.119] | +0.006 [−0.003, +0.013] | 0.164 | −0.000 [−0.010, +0.008] | 0.952 | −0.005 [−0.011, +0.001] | 0.081 |
 
+## measure first
+
+| Model | AUC | Brier | Log loss | Mean xG | ΔBrier vs StatsBomb | p | ΔBrier vs baseline | p | ΔBrier vs map-only baseline | p |
+|---|---|---|---|---|---|---|---|---|---|---|
+| GPT-6.2 Astra, measure first | 0.731 [0.644, 0.813] | 0.110 [0.082, 0.142] | 0.367 [0.286, 0.458] | 0.150 [0.132, 0.169] | +0.011 [−0.001, +0.020] | 0.066 | +0.004 [−0.007, +0.014] | 0.426 | −0.000 [−0.009, +0.008] | 0.950 |
+
 ## rerun
 
 | Model | AUC | Brier | Log loss | Mean xG | ΔBrier vs StatsBomb | p | ΔBrier vs baseline | p | ΔBrier vs map-only baseline | p |
@@ -111,5 +117,6 @@ The abstract used a shot-level bootstrap. Match clustering usually widens the in
 | GPT-6.2 Astra + all pre-shot features | −0.0068 | [−0.013, −0.002] | [−0.013, −0.001] | −0.0007 | [−0.005, +0.004] | [−0.005, +0.003] |
 | Claude Opus 5.5, coordinates as text | +0.0055 | [−0.002, +0.014] | [−0.004, +0.016] | +0.0117 | [+0.003, +0.021] | [+0.002, +0.022] |
 | Gemini 4 Carbon, coordinates as text | −0.0004 | [−0.007, +0.006] | [−0.010, +0.008] | +0.0057 | [−0.001, +0.013] | [−0.003, +0.013] |
+| GPT-6.2 Astra, measure first | +0.0043 | [−0.004, +0.012] | [−0.007, +0.014] | +0.0105 | [+0.002, +0.019] | [−0.001, +0.020] |
 | Claude Opus 5.5 (rerun) | +0.0074 | [−0.001, +0.015] | [−0.001, +0.016] | +0.0136 | [+0.005, +0.023] | [+0.005, +0.023] |
 | Gemini 4 Carbon (rerun) | +0.0002 | [−0.006, +0.006] | [−0.007, +0.007] | +0.0063 | [+0.000, +0.013] | [−0.001, +0.013] |

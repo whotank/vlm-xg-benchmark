@@ -179,6 +179,15 @@ Key findings:
   - Caveat: the readings come from a separate request that only asks for measurements, and measuring takes far
     more thinking. Thinking tokens per shot, measuring vs the xG request: Opus 568 vs 159, Carbon 3,718 vs 107,
     GPT 196 vs 25. The hybrid shows what the models can read, not what they use when they give an xG.
+- Measure first, then estimate (GPT-6.2 Astra, one request; `results/hybrid.md`): measuring first does not help.
+  - In the same request GPT reads the geometry as precisely as when it only measures (0.07 yd, 0.2°, 90% of
+    opponents exact) and thinks 7 times as long (183 vs 25 tokens per shot).
+  - Its xG is unchanged: ΔBrier vs its zero-shot run +0.002 [-0.000, +0.005] (p = 0.125); AUC 0.731 vs 0.733;
+    mean xG 0.150 vs 0.148; vs the map-only baseline -0.000.
+  - At 6-12 yd it still rates headers 0.31 and foot shots 0.30. Its own readings, scored by the map-only model,
+    give 0.19 and 0.21; StatsBomb has 0.095 and 0.271.
+  - With the right geometry in hand in the same request, the close-range error is in how it turns geometry into a
+    probability (and in the missing body part), not in perception.
 - Contamination (`results/contamination_probe.md`; 84 shots: 42 goals, 42 misses):
   - Told the match, the minute and the shooter as text, Opus, Carbon and GPT label every shot correctly: sensitivity
     and specificity 100%, AUC 1.000 vs StatsBomb 0.790. They claim to remember every goal but only 10–57% of the
@@ -256,14 +265,15 @@ Key findings:
   "very tight" angles. Inside 6 yards there are only 8 shots, so treat that band as suggestive.
 - The 12-18 yard band has an unusually high observed rate (23%); every model including StatsBomb is
   below it. That is sampling variation, not a VLM failure.
-- Cost (see `results/cost_summary.md`, rebuilt from every run's `calls.jsonl`): all runs since Nov 27 cost $81.12
-  in total (Anthropic $26.64, Gemini $45.83, OpenAI $8.66; 8,793 calls, none failed). Of that:
+- Cost (see `results/cost_summary.md`, rebuilt from every run's `calls.jsonl`): all runs since Nov 27 cost $85.38
+  in total (Anthropic $26.64, Gemini $45.83, OpenAI $12.91; 9,093 calls, none failed). Of that:
   - the overnight session: $54.48
   - the all-features and coordinates runs: $8.41
   - the contamination probes and perception runs: $17.81
   - the rescaled-image check: $0.42
+  - the measure-first run: $4.26
 
-  Left under the limits: Anthropic $3.36, Gemini $4.17, OpenAI $21.34 ($18.88 in total). A 300-shot zero-shot run
+  Left under the limits: Anthropic $3.36, Gemini $4.17, OpenAI $17.09 ($14.62 in total). A 300-shot zero-shot run
   costs $1.2-$4.0; thinking
   depth at the same "medium" setting differs a lot (thinking tokens per shot: Carbon ~107, Neon ~593,
   Hydrogen ~572, GPT-6.2 Astra ~25; Opus at its default ~160). Few-shot k=10 costs $2.2 on Opus (cached
@@ -457,7 +467,7 @@ Recorded so the paper's methods section and later runs stay consistent.
   same request's readings and the map-only baseline, and reports 6-12 yd by body part and thinking tokens.
 
 ### Caveats for the methods and discussion (added after the review of Nov 27)
-- Multiple comparisons: the main table alone has 96 paired ΔBrier tests (32 runs x StatsBomb, the baseline and the
+- Multiple comparisons: the main table alone has 99 paired ΔBrier tests (33 rows x StatsBomb, the baseline and the
   map-only baseline), 34 of them below p = 0.05, plus the ablation tables. No correction is applied; read single
   p-values near 0.05 as descriptive.
 - Selection on the evaluation set: Gemini 4 Carbon was picked as the best Gemini 4 on the same 298 shots it is
@@ -535,10 +545,11 @@ Recorded so the paper's methods section and later runs stay consistent.
   the same frames comes back empty.
 
 ## Next steps (for the full paper)
-1. Hybrid design: done for distance, angle and opponents in the triangle (`results/hybrid.md`). Possible follow-ups:
-   - "Measure, then estimate" in one request: the models read the geometry almost exactly when asked, but think far
-     less in the xG request.
-   - Keeper position as a fourth reading.
+1. Hybrid design: done for distance, angle and opponents in the triangle (`results/hybrid.md`).
+   - "Measure, then estimate" in one request: done for GPT-6.2 Astra. No gain; the close-range level stays.
+   - Possible follow-up: keeper position as a fourth reading.
+   - Possible follow-up: measure-first for Carbon (its measuring thinks about 3,700 tokens per shot, about $12 for
+     300 shots, more than the Gemini budget left).
 2. Broadcast-frame pilot: capture the 30 frames (`docs/frame_capture.md`), then run the frame xG and identify
    commands there and `frames_analysis.py`.
 3. Gemma few-shot runs in Colab (`docs/colab_gemma_fewshot.md`).
