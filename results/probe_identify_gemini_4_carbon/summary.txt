@@ -1,0 +1,8 @@
+Task: identify (probe: identify the match from the image)
+Model: gemini/gemini-4-carbon; thinking/reasoning level: medium; max output tokens: none
+Sample: results/probe_sample.json (84 shots); answered 84 of 84
+API usage: 84 calls, 0 failed; cost $1.2331
+
+Claimed to recognise the shot: 3 of 84
+Mean confidence: 0.07
+Best-guess competitions: FIFA World Cup (25); UEFA Champions League (16); La Liga (16); Premier League (12); unknown (8); UEFA Euro (6)
