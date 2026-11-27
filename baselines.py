@@ -48,9 +48,53 @@ def full_design(shots):
     return pd.concat([X, dummies], axis=1)
 
 
+def coefficients(shots, cv):
+    """results/baseline_coefficients.md: the original baseline's fitted coefficients per fold and on all shots."""
+    feats = ["distance", "angle", "header", "defenders_in_cone"]
+    y = shots.goal.values
+    fits = []
+    for k, (tr, te) in enumerate(cv, 1):
+        m = LogisticRegression(max_iter=1000).fit(shots[feats].iloc[tr], y[tr])
+        fits.append((f"Fold {k} (predicts {len(te)} shots, {int(y[te].sum())} goals; trained on the other "
+                     f"{len(tr)} shots, {int(y[tr].sum())} goals)", m))
+    fits.append((f"All {len(shots)} shots ({int(y.sum())} goals)", LogisticRegression(max_iter=1000).fit(shots[feats], y)))
+    gk_in = sum(any(not q["teammate"] and (q.get("position") or {}).get("name") == "Goalkeeper"
+                    and P.in_triangle(q["location"][:2], (r.x, r.y), P.POST_L, P.POST_R) for q in r.ff)
+                for r in shots.itertuples())
+    L = ["# Logistic baseline: coefficients", "",
+         "Model: scikit-learn `LogisticRegression(max_iter=1000)` (default L2 penalty, C = 1, lbfgs) on raw, unscaled "
+         "features. Target: goal = 1 if `shot_outcome` is \"Goal\", else 0 (penalties excluded). Features:", "",
+         "- `distance`: yards from the shot location to the centre of the goal (120, 40) on StatsBomb's 120 x 80 pitch",
+         "- `angle`: angle in radians between the lines from the shot location to the two posts (y = 36 and y = 44)",
+         "- `header`: 1 if `shot_body_part` is \"Head\", else 0",
+         "- `defenders_in_cone`: number of opponents in the triangle formed by the shot location and the two posts, "
+         f"counting every opponent in the freeze frame, goalkeeper included (the keeper is inside the triangle in "
+         f"{gk_in} of {len(shots)} shots)", "",
+         "The five fold models are the ones whose out-of-fold predictions form `baseline_xg` (folds frozen in "
+         "`results/baseline_folds.json`; fold k = model trained without fold k's matches). The all-shots fit is for "
+         "interpretation only; it matches an independent check (intercept −0.358, distance −0.093, angle +1.265, "
+         "header −1.163, defenders in cone −0.512).", "",
+         "## Coefficients (log-odds)", "", "| Fit | Intercept | distance (per yd) | angle (per rad) | header | defenders in cone |",
+         "|---|---|---|---|---|---|"]
+    sgn = lambda v: f"{v:+.3f}".replace("-", "−")
+    for name, m in fits:
+        L.append(f"| {name} | {sgn(m.intercept_[0])} | " + " | ".join(sgn(c) for c in m.coef_[0]) + " |")
+    L += ["", "## Odds ratios (exp of the coefficient)", "",
+          "Per unit of each feature: one yard further out, one radian more goal angle (1 rad = 57°; a 0.1 rad "
+          "change multiplies the odds by the tenth root of the value shown), a header instead of a foot shot, one "
+          "more opponent in the cone.", "", "| Fit | Intercept (odds) | distance | angle | header | defenders in cone |",
+          "|---|---|---|---|---|---|"]
+    for name, m in fits:
+        L.append(f"| {name} | {np.exp(m.intercept_[0]):.3f} | " + " | ".join(f"{np.exp(c):.3f}" for c in m.coef_[0]) + " |")
+    with open(os.path.join(P.RESULTS, "baseline_coefficients.md"), "w") as f:
+        f.write("\n".join(L) + "\n")
+    return fits
+
+
 def main():
     shots = P.add_baseline(P.load_shots_cached(43, 106))   # original baseline_xg, frozen folds
     cv = folds(shots)
+    coefficients(shots, cv)
     y = shots.goal.values
     shots["baseline_image_xg"] = cross_val_predict(
         LogisticRegression(max_iter=1000), shots[["distance", "angle", "defenders_in_cone"]], y,

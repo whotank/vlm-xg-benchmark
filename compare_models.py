@@ -16,7 +16,8 @@ Outputs (written every run):
 Figures (only with --figures, because rewriting the PNGs changes their bytes even when the data has not):
   results/figure1.png                   Figure 1 of the abstract (the four original models), unchanged design
   results/figure_frontier.png           same design for the best model of each API provider vs StatsBomb
-  results/figure_forest.png             AUC and Brier with match-clustered 95% CIs for every run
+  results/figure_forest.png             AUC and Brier with match-clustered 95% CIs for every run (Reference rows on top)
+  results/figure_paired.png             paired ΔBrier vs StatsBomb and vs the logistic baseline for every row
 
 Run after xg_vlm_pilot.py has produced results/<run>/shots.csv for each run:
   python compare_models.py              # tables only
@@ -365,25 +366,51 @@ def figure(base, preds, labels, path, colors=None, markers=None):
     print(f"Saved {path}")
 
 
-def figure_forest(main_t, path):
-    """AUC and Brier with match-clustered 95% CIs, one row per run, grouped; references as vertical lines."""
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    names = {"zero-shot": "Zero-shot", "few-shot set A": "Few-shot, example set A", "few-shot set B":
-             "Few-shot, example set B", "context": "Body part given", "all features": "Image + all pre-shot features",
-             "coordinates": "Coordinates as text (no image)",
-             "rerun": "Zero-shot, queried again", "reference": "Other statistical baselines"}
+GROUP_NAMES = {"reference": "Reference", "zero-shot": "Zero-shot", "few-shot set A": "Few-shot, example set A",
+               "few-shot set B": "Few-shot, example set B", "context": "Body part given",
+               "all features": "Image + all pre-shot features", "coordinates": "Coordinates as text (no image)",
+               "rerun": "Zero-shot, queried again"}
+REF_ORDER = ["StatsBomb xG", "Logistic baseline", "Map-only baseline", "Logistic, all pre-shot features"]
+REF_INK, RUN_INK = "#191919", "#257de0"   # statistical references in near-black, VLM runs in blue
+
+
+def figure_rows(main_t):
+    """Row layout shared by the forest and paired figures: a Reference group at the top, then each run group."""
     rows, ypos, heads, y = [], [], [], 0
-    shown = main_t[~main_t.model.isin(REFS)]   # StatsBomb and the original baseline are the vertical lines
-    for grp, g in shown.groupby("group", sort=False):
-        heads.append((y, names.get(grp, grp)))
+    for grp in ["reference"] + [g for g in GROUP_ORDER if g != "reference"]:
+        g = main_t[main_t.group == grp]
+        if g.empty:
+            continue
+        if grp == "reference":
+            g = g.set_index("model").loc[[m for m in REF_ORDER if m in set(g.model)]].reset_index()
+        heads.append((y, GROUP_NAMES.get(grp, grp)))
         y += 1
         for _, r in g.iterrows():
             rows.append(r)
             ypos.append(y)
             y += 1
         y += 0.5
+    return rows, ypos, heads, y
+
+
+def _row_axes(axes, rows, ypos, heads):
+    axes[0].set_yticks(ypos, [r.model for r in rows])
+    for yy, h in heads:
+        axes[0].annotate(h, xy=(0, yy), xycoords=("axes fraction", "data"), xytext=(-8, 0),
+                         textcoords="offset points", ha="right", va="center", fontweight="bold", fontsize=9)
+    axes[0].invert_yaxis()
+    for ax in axes:
+        ax.grid(axis="x", color="#e6e6e6", lw=0.8)
+        ax.set_axisbelow(True)
+
+
+def figure_forest(main_t, path):
+    """AUC and Brier with match-clustered 95% CIs, one row per run, grouped. StatsBomb xG and the logistic
+    baselines get their own rows (Reference group at the top) and StatsBomb / the baseline also a vertical line."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    rows, ypos, heads, y = figure_rows(main_t)
     refs = main_t[main_t.group == "reference"].set_index("model")
     plt.rcParams.update({"font.size": 9, "axes.spines.top": False, "axes.spines.right": False})
     fig, axes = plt.subplots(1, 2, figsize=(10, 0.24 * y + 1.2), sharey=True)
@@ -392,21 +419,58 @@ def figure_forest(main_t, path):
             ax.axvline(refs.loc[ref, m], color="#191919" if ref == "StatsBomb xG" else "#666666", ls=ls, lw=1.2,
                        label=ref, zorder=1)
         for r, yy in zip(rows, ypos):
-            ax.plot([r[f"{m}_lo"], r[f"{m}_hi"]], [yy, yy], color="#257de0", lw=1.5, solid_capstyle="round", zorder=2)
-            ax.plot(r[m], yy, "o", color="#257de0", ms=5, mec="white", mew=1, zorder=3)
+            ink = REF_INK if r.group == "reference" else RUN_INK
+            ax.plot([r[f"{m}_lo"], r[f"{m}_hi"]], [yy, yy], color=ink, lw=1.5, solid_capstyle="round", zorder=2)
+            ax.plot(r[m], yy, "o", color=ink, ms=5, mec="white", mew=1, zorder=3)
         ax.set_title(title, loc="left", fontweight="bold")
-        ax.grid(axis="x", color="#e6e6e6", lw=0.8)
-        ax.set_axisbelow(True)
-    axes[0].set_yticks(ypos, [r.model for r in rows])
-    for yy, h in heads:
-        axes[0].annotate(h, xy=(0, yy), xycoords=("axes fraction", "data"), xytext=(-8, 0),
-                         textcoords="offset points", ha="right", va="center", fontweight="bold", fontsize=9)
-    axes[0].invert_yaxis()
+    _row_axes(axes, rows, ypos, heads)
     axes[1].legend(frameon=False, loc="lower right", fontsize=8)
     fig.text(0.01, 0.005, "Dots: estimate; lines: 95% match-clustered bootstrap interval (2,000 resamples). "
-             "Vertical lines: StatsBomb xG (dashed) and the logistic baseline (dotted).\nThese marginal intervals "
-             "overlap because all runs share the same shots; paired differences (results/main_table.md, "
-             "fewshot.md, context_ablation.md) are much tighter.", fontsize=7.5, color="#666666")
+             "Black: statistical references; blue: VLM runs. Vertical lines: StatsBomb xG (dashed) and the logistic "
+             "baseline (dotted).\nThese marginal intervals overlap because all runs share the same shots; the paired "
+             "differences (figure_paired.png, results/main_table.md) are much tighter.", fontsize=7.5, color="#666666")
+    fig.tight_layout(rect=(0, 0.035, 1, 1))
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved {path}")
+
+
+def figure_paired(main_t, diffs_path, path):
+    """ΔBrier of every row vs StatsBomb xG (left) and vs the logistic baseline (right), paired match-clustered
+    95% CIs from paired_differences.csv; a vertical line at zero. Filled dot = interval excludes zero."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    d = pd.read_csv(diffs_path)
+    d = d[d.metric == "brier"]
+    rows, ypos, heads, y = figure_rows(main_t)
+    plt.rcParams.update({"font.size": 9, "axes.spines.top": False, "axes.spines.right": False})
+    fig, axes = plt.subplots(1, 2, figsize=(10, 0.24 * y + 1.3), sharey=True)
+    cap = 0.045   # rows beyond this (Gemma) are drawn to the edge with their value printed, so the rest stay readable
+    lo_all = d.lo.min()
+    for ax, ref, title in [(axes[0], "StatsBomb xG", "ΔBrier vs StatsBomb xG"),
+                           (axes[1], "Logistic baseline", "ΔBrier vs logistic baseline")]:
+        ax.axvline(0, color="#191919", lw=1, zorder=1)
+        sub = d[d.vs == ref].set_index("model")
+        for r, yy in zip(rows, ypos):
+            if r.model not in sub.index:        # the comparator itself
+                continue
+            q = sub.loc[r.model]
+            ink = REF_INK if r.group == "reference" else RUN_INK
+            excludes_zero = q.lo > 0 or q.hi < 0
+            if q.lo > cap:                      # entirely off scale
+                ax.annotate(f"{q['diff']:+.3f} [{q.lo:+.3f}, {q.hi:+.3f}] →", xy=(cap, yy), ha="right", va="center",
+                            fontsize=8, color=ink)
+                continue
+            ax.plot([q.lo, min(q.hi, cap)], [yy, yy], color=ink, lw=1.5, solid_capstyle="round", zorder=2)
+            ax.plot(q["diff"], yy, "o", ms=5, mfc=ink if excludes_zero else "white", mec=ink, mew=1.2, zorder=3)
+        ax.set_xlim(min(lo_all, -0.005) - 0.003, cap)
+        ax.set_title(f"{title} (negative = better)", loc="left", fontweight="bold")
+    _row_axes(axes, rows, ypos, heads)
+    fig.text(0.01, 0.005, "Dots: paired ΔBrier = Brier(row) − Brier(reference); lines: 95% match-clustered bootstrap "
+             "interval (2,000 resamples of matches, the same resamples for every row). Filled: the interval excludes "
+             "zero; hollow: it does not.\nBlack: statistical references; blue: VLM runs. A row has no mark in the panel "
+             "where it is the reference itself.", fontsize=7.5, color="#666666")
     fig.tight_layout(rect=(0, 0.035, 1, 1))
     fig.savefig(path, dpi=300, bbox_inches="tight")
     plt.close(fig)
@@ -416,7 +480,8 @@ def figure_forest(main_t, path):
 # ---------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--figures", action="store_true", help="also redraw the figures (figure1, frontier, forest)")
+    ap.add_argument("--figures", action="store_true",
+                    help="also redraw the figures (figure1, frontier, forest, paired)")
     a = ap.parse_args()
 
     runs = load_runs()
@@ -457,6 +522,7 @@ def main():
             figure(base, preds, front, os.path.join(RES, "figure_frontier.png"), colors=FRONTIER_COLORS,
                    markers=dict(zip(front, ["o", "s", "^"])))
         figure_forest(main_t, os.path.join(RES, "figure_forest.png"))
+        figure_paired(main_t, os.path.join(RES, "paired_differences.csv"), os.path.join(RES, "figure_paired.png"))
 
 
 if __name__ == "__main__":
