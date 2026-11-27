@@ -1,0 +1,70 @@
+{
+ "backend": "gemini",
+ "model": "gemini-4-carbon",
+ "shots": 0,
+ "example_set": null,
+ "example_ids": [],
+ "example_seed": null,
+ "context": false,
+ "thinking_level": "medium",
+ "max_output_tokens": "none",
+ "seed": 7,
+ "comp": 43,
+ "season": 106,
+ "prompt_sha": "b40f124d940c",
+ "invocations": [
+  {
+   "started": "2026-11-27T07:14:32+00:00",
+   "n": 2,
+   "workers": 2,
+   "stage": "3: Gemini 4 zero-shot",
+   "versions": {
+    "anthropic": "2.14.0",
+    "google-genai": "3.6.1",
+    "openai": "3.60.0",
+    "matplotlib": "3.11.2",
+    "mplsoccer": "1.8.1",
+    "statsbombpy": "1.22.0"
+   },
+   "finished": "2026-11-27T07:15:01+00:00",
+   "status": "complete",
+   "elapsed_s": 29
+  },
+  {
+   "started": "2026-11-27T07:15:16+00:00",
+   "n": 2,
+   "workers": 2,
+   "stage": "3: Gemini 4 zero-shot",
+   "versions": {
+    "anthropic": "2.14.0",
+    "google-genai": "3.6.1",
+    "openai": "3.60.0",
+    "matplotlib": "3.11.2",
+    "mplsoccer": "1.8.1",
+    "statsbombpy": "1.22.0"
+   },
+   "finished": "2026-11-27T07:15:16+00:00",
+   "status": "complete",
+   "elapsed_s": 0
+  },
+  {
+   "started": "2026-11-27T07:17:19+00:00",
+   "n": 300,
+   "workers": 6,
+   "stage": "3: Gemini 4 zero-shot",
+   "versions": {
+    "anthropic": "2.14.0",
+    "google-genai": "3.6.1",
+    "openai": "3.60.0",
+    "matplotlib": "3.11.2",
+    "mplsoccer": "1.8.1",
+    "statsbombpy": "1.22.0"
+   },
+   "finished": "2026-11-27T07:34:43+00:00",
+   "status": "complete",
+   "elapsed_s": 1027
+  }
+ ],
+ "stage": "3: Gemini 4 zero-shot",
+ "n": 300
+}
