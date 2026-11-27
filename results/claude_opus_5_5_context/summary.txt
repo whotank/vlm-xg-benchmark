@@ -1,0 +1,77 @@
+Data: StatsBomb open data, competition 43, season 106
+All non-penalty shots with freeze frames: 1430 (152 goals)
+VLM sample: 300 shots (42 goals), observed goal rate 0.140
+VLM: anthropic/claude-opus-5-5, zero-shot, context=body part
+Settings: thinking/reasoning level = not set: no thinking or effort parameter sent, as in the original Opus/Sonnet runs (Opus 5.5 always thinks at its default effort, medium; thinking counts toward max_tokens); max output tokens = 600; sampling = provider default
+API usage, all invocations of this run: 300 calls, 0 failed, 0 accepted answers flagged incomplete; tokens: input 155502, cache writes 0, cached input 0, output 69086 (of which thinking 47955)
+Cost: $2.0037 at 4.0/20.0 USD per 1M input/output tokens (Anthropic pricing page (official): platform.claude.com/docs/en/about-claude/pricing, 2026-11-27)
+
+model              AUC    Brier  LogLoss   MeanXG
+vlm_xg           0.730   0.1091   0.3701    0.097
+sb_xg            0.793   0.0989   0.3378    0.100
+baseline_xg      0.768   0.1050   0.3494    0.108
+
+Brier(VLM) - Brier(StatsBomb) = +0.0102  (95% shot-level bootstrap CI +0.0028 to +0.0187)
+Brier(VLM) - Brier(baseline)  = +0.0041  (95% shot-level bootstrap CI -0.0028 to +0.0115)
+(match-clustered intervals for all runs: results/main_table.md, from compare_models.py)
+Spearman rho, VLM vs StatsBomb xG: 0.835
+Mean gap (VLM - StatsBomb): -0.003; mean absolute gap: 0.045
+
+Disagreement by body_part:
+              n  goals    vlm  statsbomb  mean_gap
+body_part                                         
+Head         63      7  0.141      0.098     0.043
+Left Foot    93     15  0.076      0.086    -0.010
+Other         3      0  0.330      0.379    -0.049
+Right Foot  141     20  0.086      0.104    -0.018
+
+Disagreement by play_pattern:
+                  n  goals    vlm  statsbomb  mean_gap
+play_pattern                                          
+From Corner      52      5  0.131      0.100     0.031
+From Counter     10      3  0.179      0.235    -0.056
+From Free Kick   58      7  0.075      0.060     0.015
+From Goal Kick   18      5  0.083      0.085    -0.003
+From Keeper       3      0  0.093      0.140    -0.047
+From Kick Off     2      0  0.050      0.034     0.016
+From Throw In    55      6  0.077      0.076     0.002
+Regular Play    102     16  0.098      0.125    -0.027
+
+Disagreement by cone_bin:
+            n  goals    vlm  statsbomb  mean_gap
+cone_bin                                        
+0           8      5  0.230      0.489    -0.259
+1         137     26  0.125      0.133    -0.008
+2         104      8  0.075      0.056     0.019
+3+         51      3  0.046      0.040     0.006
+
+Disagreement by dist_bin:
+           n  goals    vlm  statsbomb  mean_gap
+dist_bin                                       
+<6         8      4  0.301      0.480    -0.178
+6-12      77     14  0.188      0.168     0.020
+12-18     81     18  0.092      0.101    -0.009
+18-25     69      4  0.041      0.049    -0.008
+25+       65      2  0.029      0.024     0.005
+
+Largest VLM over-estimates:
+                             shot_id  goal  sb_xg  vlm_xg   gap  body_part  distance  defenders_in_cone                                                                                                                                                                                                                               vlm_reason
+b1309c1c-2272-43ac-a0a6-c9f358d70c18     0  0.047    0.30 0.253      Other    10.462                  2 The shot comes from very close range just outside the six-yard box and fairly central, but it is struck with an unconventional body part, likely after a corner, with defenders tight around the shooter and the keeper set on his line.
+3a1509ee-760a-4695-8f34-4fc753ad490c     0  0.082    0.30 0.218 Right Foot     6.929                  1                                                      The shot comes from very close range inside the six-yard box, but the angle is tight just outside the near post, and the goalkeeper and a defender are right on top of the shooter.
+4232fdf4-5a2b-47bf-ae3b-0f5fdeea3684     0  0.099    0.30 0.201       Head     7.441                  2                                                     A header from inside the six-yard box at a central angle is a high-quality chance, but several nearby defenders and a goalkeeper positioned close to the shot lower the probability.
+ef6accb7-1ca3-46b0-9ba9-9c1f3fee82aa     0  0.059    0.24 0.181       Head     9.626                  2                                                                          A close-range header from around the six-yard box gives a good chance, but heavy congestion with defenders and a goalkeeper on his line lowers the probability.
+6c3a8948-24c5-4a9f-94ef-820524a32e7c     0  0.094    0.27 0.176       Head     7.654                  1                                                                     A header from inside the six-yard box is very close range, but the tight angle, the goalkeeper right beside the shooter and the crowd of defenders lower the chance.
+b73e743c-d52b-41c7-b455-268e8938cbe9     0  0.078    0.22 0.142       Head     9.753                  1                                                                                             A central header from about 7-8 yards is a good chance, but nearby defenders contesting the ball and a set goalkeeper lower the probability.
+e5f4a1df-48f8-403f-84cf-2310bb7efb92     0  0.081    0.20 0.119  Left Foot    10.324                  1                            The shot comes from close range, about 9m out just beyond the six-yard box at a moderate angle, but a crowded box with defenders tight around the shooter and the keeper set on his line cut the chance down.
+4c292e31-05ce-4f6f-a5d1-5e5d408b26e6     0  0.124    0.24 0.116       Head     6.912                  1                                                                                              A central header from about 6-7 yards is a good chance, but several close defenders and a goalkeeper set on his line lower the probability.
+
+Largest VLM under-estimates:
+                             shot_id  goal  sb_xg  vlm_xg    gap  body_part  distance  defenders_in_cone                                                                                                                                                                                                  vlm_reason
+2b86a444-5696-4c2d-ba7f-837ec9756684     1  0.669    0.17 -0.499 Right Foot     4.780                  0                          The shot is from point-blank range inside the six-yard box, but the angle near the left post is very tight and a crowded goalmouth plus a close keeper make it hard to find space.
+be17203f-f93a-4a28-9704-0d0783b29be2     1  0.897    0.42 -0.477 Right Foot     6.403                  0                                                               Central shot from about six yards with the goalkeeper shifted toward the right post, though nearby defenders crowd the lane and can block it.
+4b8db9ec-fbb1-485b-b348-d8bb3aecbf07     1  0.779    0.33 -0.449 Right Foot     9.534                  0                         A central right-footed shot from about 8-9 m is a high-quality chance, but the goalkeeper is well positioned close to the shooter and nearby defenders can apply pressure or block.
+19a225eb-4436-4a53-a354-3b40dfa6ca31     1  0.711    0.33 -0.381       Head     3.360                  0                                      A header from point-blank range inside the six-yard box is a high-quality chance, but the goalkeeper is right on the shooter and a defender is tight, which limits it.
+70fe857d-6f28-4b38-8ad7-a655328ec176     1  0.727    0.38 -0.347 Right Foot     6.401                  1                      The shot comes from very close range near the six-yard line with a good angle, but the goalkeeper is well positioned and a crowd of defenders around the shooter makes a block likely.
+d53ccaf1-0307-4067-946b-d514978dfae2     1  0.791    0.45 -0.341 Right Foot     4.428                  0                         The shot comes from about 3 metres out inside the six-yard box with a clear view of goal, but the goalkeeper is right on top of the shooter and well placed to smother or block it.
+eb01f465-08f6-4adf-a1b8-865127b41a97     1  0.408    0.12 -0.288  Left Foot    12.860                  1                                         A left-footed shot from about 13 yards at a moderate angle on the right side, with the goalkeeper well positioned and several defenders crowding the shooting lane.
+5078e0df-5e43-4742-956a-45fd5c985eaf     0  0.572    0.33 -0.242      Other     3.748                  1 The shot comes from point-blank range inside the six-yard box, but it is struck with an unconventional body part while a defender is tight on the shooter and the goalkeeper is close by in a crowded area.
