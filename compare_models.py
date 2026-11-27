@@ -270,6 +270,59 @@ def tables(y, preds, groups, folders, B, bands):
     return main, pd.DataFrame(diffs), pd.DataFrame(band_rows)
 
 
+def band_body_table(y, preds, match_ids, bands, header):
+    """Band means split by body part (headers vs foot and other), on the same match-clustered resamples as the main
+    bootstrap. Most 6-12 yd shots are headers, which no image-only model can tell apart from foot shots."""
+    idxs = cluster_bootstrap(match_ids)
+    nb = len(BAND_LABELS)
+    code, nc = bands + nb * np.asarray(header, int), 2 * nb
+    obs = np.full((len(idxs), nc), np.nan)
+    boot = {m: np.full((len(idxs), nc), np.nan) for m in preds}
+    for b, ix in enumerate(idxs):
+        c = code[ix]
+        den = np.bincount(c, minlength=nc).astype(float)
+        den[den == 0] = np.nan
+        obs[b] = np.bincount(c, weights=y[ix], minlength=nc) / den
+        for m, p in preds.items():
+            boot[m][b] = np.bincount(c, weights=p[ix], minlength=nc) / den
+    cnt = np.bincount(code, minlength=nc)
+    goals = np.bincount(code, weights=y, minlength=nc).astype(int)
+    rows = []
+    for body, off in [("header", nb), ("foot/other", 0)]:
+        for j, lab in enumerate(BAND_LABELS):
+            k = off + j
+            if cnt[k] == 0:
+                continue
+            rows.append(dict(model="Observed goal rate", group="observed", body=body, band=lab, n=cnt[k],
+                             goals=goals[k], mean=goals[k] / cnt[k], lo=ci(obs[:, k])[0], hi=ci(obs[:, k])[1]))
+            for m, p in preds.items():
+                lo, hi = ci(boot[m][:, k])
+                rows.append(dict(model=m, group="", body=body, band=lab, n=cnt[k], goals=goals[k],
+                                 mean=p[code == k].mean(), lo=lo, hi=hi))
+    return pd.DataFrame(rows)
+
+
+def append_band_body_markdown(bb, models, path):
+    L = ["", "## Split by body part", "",
+         "The same band means for headers and for foot (and other) shots separately. The drawing does not show the "
+         "body part, so image-only models give headers foot-shot values: at 6–12 yd most shots are headers, which "
+         "StatsBomb rates far lower than foot shots from the same distance. Empty cells: no shot in that band.", ""]
+    for body, title in [("header", "Headers"), ("foot/other", "Foot and other body parts")]:
+        sub = bb[bb.body == body]
+        nrow = sub[sub.model == "Observed goal rate"].set_index("band")
+        bl = [b for b in BAND_LABELS if b in nrow.index]
+        L += [f"### {title}", "", "| Model | " + " | ".join(f"{b} yd (n={nrow.loc[b, 'n']}, {nrow.loc[b, 'goals']} goals)"
+                                                         for b in bl) + " |", "|---" * (len(bl) + 1) + "|"]
+        for m in ["Observed goal rate"] + models:
+            g = sub[sub.model == m].set_index("band")
+            if g.empty:
+                continue
+            L.append(f"| {m} | " + " | ".join(fmt(g.loc[b, 'mean'], g.loc[b, 'lo'], g.loc[b, 'hi'], nd=2) for b in bl) + " |")
+        L.append("")
+    with open(path, "a") as f:
+        f.write("\n".join(L))
+
+
 def write_markdown(main, bands_df, y, B, n_matches, path_main, path_bands):
     lo, hi = ci(B["obs"])
     head = (f"Evaluation set: {len(y)} shots every included run answered ({int(y.sum())} goals, "
@@ -500,6 +553,9 @@ def main():
     bands_t.to_csv(os.path.join(RES, "distance_bands.csv"), index=False)
     write_markdown(main_t, bands_t, y, B, n_matches,
                    os.path.join(RES, "main_table.md"), os.path.join(RES, "distance_bands.md"))
+    bb = band_body_table(y, preds, base.match_id.values, bands, base.header.values)
+    bb.to_csv(os.path.join(RES, "distance_bands_by_body.csv"), index=False)
+    append_band_body_markdown(bb, list(main_t.model), os.path.join(RES, "distance_bands.md"))
 
     print(f"{'model':<34}{'AUC':>22}{'Brier':>25}{'MeanXG':>22}   ΔBrier vs StatsBomb [CI]     ΔBrier vs baseline [CI]")
     for _, r in main_t.iterrows():

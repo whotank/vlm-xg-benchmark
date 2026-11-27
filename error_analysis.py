@@ -62,18 +62,24 @@ def load():
 
 
 def group_table(df, idx, col, labels=None):
+    """Per group: mean gap (CI), the group's additive contribution to the Brier gap (sum of its excess / all shots;
+    contributions sum to the total ΔBrier) and its share of the total, each with match-clustered bootstrap CIs.
+    The share is a ratio of two noisy sums, so its interval is wide."""
     rows = []
-    total = df.excess.sum()
+    n, total = len(df), df.excess.sum()
+    ex, gap = df.excess.values, df.gap.values
     for g, sub in df.groupby(col, observed=True):
         mask = (df[col] == g).values
-        boot = []
+        b_gap, b_con, b_share = [], [], []
         for ix in idx:
             m = mask[ix]
-            boot.append(df.gap.values[ix][m].mean() if m.any() else np.nan)
-        lo, hi = C.ci(boot)
+            b_gap.append(gap[ix][m].mean() if m.any() else np.nan)
+            b_con.append(ex[ix][m].sum() / len(ix))
+            b_share.append(ex[ix][m].sum() / ex[ix].sum())
         rows.append(dict(group=labels.get(g, g) if labels else g, n=len(sub), goals=int(sub.goal.sum()),
-                         sb=sub.sb_xg.mean(), vlm=sub.frontier_mean.mean(), gap=sub.gap.mean(), lo=lo, hi=hi,
-                         share=sub.excess.sum() / total))
+                         sb=sub.sb_xg.mean(), vlm=sub.frontier_mean.mean(), gap=sub.gap.mean(), ci_gap=C.ci(b_gap),
+                         contrib=sub.excess.sum() / n, ci_contrib=C.ci(b_con), share=sub.excess.sum() / total,
+                         ci_share=C.ci(b_share)))
     return pd.DataFrame(rows)
 
 
@@ -90,14 +96,25 @@ def regression(df, idx):
     return pd.DataFrame(out), r2
 
 
-def gallery(df, reasons, path, n_each=6):
+def gallery_picks(df, n_each=6):
+    over = df[df.n_above_sb == len(FRONTIER)].nlargest(n_each, "gap")
+    under = df[df.n_above_sb == 0].nsmallest(n_each, "gap")
+    return [("over", s) for s in over.index] + [("under", s) for s in under.index]
+
+
+def draw_gallery(df, picks, path):
+    """Draws the gallery from the rendered shot images; images missing from results/images/ (it is not committed)
+    are rendered first with the pipeline's render()."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from PIL import Image
-    over = df[df.n_above_sb == len(FRONTIER)].nlargest(n_each, "gap")
-    under = df[df.n_above_sb == 0].nsmallest(n_each, "gap")
-    picks = [("over", s) for s in over.index] + [("under", s) for s in under.index]
+    os.makedirs(P.IMG_DIR, exist_ok=True)
+    missing = [s for _, s in picks if not os.path.exists(os.path.join(P.IMG_DIR, f"{s}.png"))]
+    if missing:
+        shots = P.load_shots_cached(43, 106).set_index("shot_id")
+        for s in missing:
+            P.render(shots.loc[s].rename(s), os.path.join(P.IMG_DIR, f"{s}.png"))
     fig, axes = plt.subplots(4, 3, figsize=(13, 12.5))
     for ax, (kind, sid) in zip(axes.ravel(), picks):
         r = df.loc[sid]
@@ -114,7 +131,6 @@ def gallery(df, reasons, path, n_each=6):
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     fig.savefig(path, dpi=200, bbox_inches="tight")
     plt.close(fig)
-    return picks
 
 
 def main():
@@ -128,19 +144,28 @@ def main():
     df["cone_bin"] = pd.cut(df.defenders_in_cone, [-1, 0, 1, 2, 99], labels=["0", "1", "2", "3+"])
     df.drop(columns=[]).to_csv(os.path.join(C.RES, "error_analysis_shots.csv"))
 
+    d_ci = C.ci([df.excess.values[ix].mean() for ix in idx])
+    kinds = [f"{b}, {k}" for b in C.BAND_LABELS for k in ("header", "foot/other")]
+    df["band_kind"] = pd.Categorical([f"{b}, {'header' if h else 'foot/other'}" for b, h in zip(df.band, df.header)],
+                                     categories=kinds, ordered=True)
     L = ["# Error analysis: which shots do the VLMs get wrong?", "",
          f"Evaluation set: the {n} common shots ({y.sum()} goals). Frontier = {', '.join(FRONTIER)} (zero-shot, image "
          "only). Gap = frontier mean xG − StatsBomb xG. Excess Brier = (frontier mean − goal)² − (StatsBomb − goal)²; "
-         f"its mean is the Brier gap of the averaged frontier prediction to StatsBomb ({d_total:+.4f} here), and each "
-         "group's share says where that gap accumulates. Brackets: 95% match-clustered bootstrap intervals.", ""]
-    for title, col in [("Distance band (yards)", "band"), ("Shot kind", "shot_kind"),
-                       ("Keeper distance to the shooter", "gk_bin"), ("Opponents in the shooting cone", "cone_bin")]:
+         f"its mean is the Brier gap of the averaged frontier prediction to StatsBomb: {d_total:+.4f} "
+         f"[{d_ci[0]:+.4f}, {d_ci[1]:+.4f}]. A group's contribution is the sum of its shots' excess divided by all "
+         f"{n} shots (contributions add up to that total); its share is the contribution divided by the total. The "
+         "share is a ratio of two noisy sums, so its interval is wide: read the mean gaps and contributions first. "
+         "Brackets: 95% match-clustered bootstrap intervals.", ""]
+    for title, col in [("Distance band (yards)", "band"), ("Distance band and body part", "band_kind"),
+                       ("Shot kind", "shot_kind"), ("Keeper distance to the shooter", "gk_bin"),
+                       ("Opponents in the shooting cone", "cone_bin")]:
         t = group_table(df, idx, col)
-        L += [f"## {title}", "", "| Group | n (goals) | StatsBomb | Frontier VLMs | Gap [95% CI] | Share of Brier gap |",
-              "|---|---|---|---|---|---|"]
+        L += [f"## {title}", "", "| Group | n (goals) | StatsBomb | Frontier VLMs | Gap [95% CI] | "
+              "Contribution to ΔBrier [95% CI] | Share of ΔBrier [95% CI] |", "|---|---|---|---|---|---|---|"]
         for _, r in t.iterrows():
-            L.append(f"| {r.group} | {r.n} ({r.goals}) | {r.sb:.3f} | {r.vlm:.3f} | {C.fmt(r.gap, r.lo, r.hi, sign=True)} | "
-                     f"{r.share:+.0%} |".replace("-", "−"))
+            L.append(f"| {r.group} | {r.n} ({r.goals}) | {r.sb:.3f} | {r.vlm:.3f} | "
+                     f"{C.fmt(r.gap, *r.ci_gap, sign=True)} | {C.fmt(r.contrib, *r.ci_contrib, nd=4, sign=True)} | "
+                     f"{r.share:+.0%} [{r.ci_share[0]:+.0%}, {r.ci_share[1]:+.0%}] |".replace("-", "−"))
         L.append("")
 
     reg, r2 = regression(df, idx)
@@ -168,7 +193,7 @@ def main():
     L += ["", f"All five above StatsBomb on {agree_over} shots, all five below on {agree_under}, split on "
           f"{n - agree_over - agree_under}."]
 
-    picks = gallery(df, reasons, os.path.join(C.RES, "figure_error_gallery.png"))
+    picks = gallery_picks(df)
     L += ["", "## Largest consensus disagreements (results/figure_error_gallery.png)", "",
           "| | Shot | Outcome | StatsBomb | Frontier mean (range) | Body part, distance, play | Gemini 4 Carbon's reason |",
           "|---|---|---|---|---|---|---|"]
@@ -190,9 +215,10 @@ def main():
             g = (df[m] - df.sb_xg).values
             cells.append(f"{hit.mean():.0%} ({g[hit].mean():+.3f})".replace("-", "−") if hit.any() else "0%")
         L.append(f"| {name} | " + " | ".join(cells) + " |")
-    with open(os.path.join(C.RES, "error_analysis.md"), "w") as f:
+    with open(os.path.join(C.RES, "error_analysis.md"), "w") as f:   # tables first: the figure needs the images
         f.write("\n".join(L) + "\n")
     print("\n".join(L))
+    draw_gallery(df, picks, os.path.join(C.RES, "figure_error_gallery.png"))
 
 
 if __name__ == "__main__":

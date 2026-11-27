@@ -61,9 +61,34 @@ n=63, 7 goals, observed 0.111, StatsBomb 0.098.
 | Claude Opus 5.5 | 0.211 | 0.142 | −0.070 [−0.084, −0.055] |
 | Gemini 4 Carbon | 0.185 | 0.179 | −0.006 [−0.021, +0.012] |
 
+## By distance band and body part
+
+Most 6–12 yd shots are headers, which StatsBomb rates far lower than foot shots from the same distance and neither input can identify. Gap = mean xG − StatsBomb mean in the cell; change = coordinates − image (paired).
+
+| Model | Band (yd) | Body part | n (goals) | StatsBomb | Image: mean (gap) | Coordinates: mean (gap) | Change [95% CI] | p |
+|---|---|---|---|---|---|---|---|---|
+| Claude Opus 5.5 | <6 | header | 4 (2) | 0.322 | 0.362 (+0.040) | 0.302 (−0.020) | −0.060 [−0.110, +0.050] | 0.115 |
+| Claude Opus 5.5 | <6 | foot/other | 4 (2) | 0.637 | 0.340 (−0.297) | 0.368 (−0.270) | +0.028 [−0.020, +0.070] | 0.120 |
+| Claude Opus 5.5 | 6–12 | header | 45 (5) | 0.095 | 0.225 (+0.130) | 0.143 (+0.048) | −0.082 [−0.099, −0.066] | <0.001 |
+| Claude Opus 5.5 | 6–12 | foot/other | 32 (9) | 0.271 | 0.215 (−0.055) | 0.170 (−0.101) | −0.046 [−0.073, −0.011] | 0.013 |
+| Claude Opus 5.5 | 12–18 | header | 13 (0) | 0.042 | 0.129 (+0.088) | 0.094 (+0.052) | −0.035 [−0.051, −0.016] | 0.003 |
+| Claude Opus 5.5 | 12–18 | foot/other | 66 (18) | 0.115 | 0.096 (−0.019) | 0.067 (−0.048) | −0.029 [−0.041, −0.017] | <0.001 |
+| Claude Opus 5.5 | 18–25 | header | 1 (0) | 0.026 | 0.040 (+0.014) | 0.050 (+0.024) | +0.010 [+0.010, +0.010] | <0.001 |
+| Claude Opus 5.5 | 18–25 | foot/other | 68 (4) | 0.050 | 0.041 (−0.009) | 0.038 (−0.012) | −0.002 [−0.005, −0.000] | 0.017 |
+| Claude Opus 5.5 | 25+ | foot/other | 65 (2) | 0.024 | 0.029 (+0.006) | 0.027 (+0.003) | −0.003 [−0.004, −0.001] | 0.001 |
+| Gemini 4 Carbon | <6 | header | 4 (2) | 0.322 | 0.415 (+0.093) | 0.417 (+0.095) | +0.002 [−0.140, +0.140] | 0.980 |
+| Gemini 4 Carbon | <6 | foot/other | 4 (2) | 0.637 | 0.568 (−0.070) | 0.618 (−0.020) | +0.050 [+0.000, +0.100] | 0.066 |
+| Gemini 4 Carbon | 6–12 | header | 45 (5) | 0.095 | 0.187 (+0.092) | 0.172 (+0.077) | −0.015 [−0.031, +0.003] | 0.099 |
+| Gemini 4 Carbon | 6–12 | foot/other | 32 (9) | 0.271 | 0.214 (−0.056) | 0.210 (−0.061) | −0.004 [−0.031, +0.027] | 0.762 |
+| Gemini 4 Carbon | 12–18 | header | 13 (0) | 0.042 | 0.115 (+0.073) | 0.138 (+0.097) | +0.024 [+0.002, +0.049] | 0.031 |
+| Gemini 4 Carbon | 12–18 | foot/other | 66 (18) | 0.115 | 0.110 (−0.005) | 0.096 (−0.019) | −0.014 [−0.021, −0.006] | <0.001 |
+| Gemini 4 Carbon | 18–25 | header | 1 (0) | 0.026 | 0.060 (+0.034) | 0.050 (+0.024) | −0.010 [−0.010, −0.010] | <0.001 |
+| Gemini 4 Carbon | 18–25 | foot/other | 68 (4) | 0.050 | 0.049 (−0.001) | 0.038 (−0.012) | −0.011 [−0.017, −0.007] | <0.001 |
+| Gemini 4 Carbon | 25+ | foot/other | 65 (2) | 0.024 | 0.027 (+0.003) | 0.023 (−0.001) | −0.004 [−0.005, −0.003] | <0.001 |
+
 ## Reading (rule fixed before the runs, plus a level-shift check)
 
-- Claude Opus 5.5: at 6–12 yd the gap to StatsBomb goes from +0.053 (image) to −0.014 (coordinates); change −0.067 [−0.082, −0.049], so the over-estimate shrinks significantly. But the change is not specific to close range: the model's mean xG over all shots moves by −0.027 [−0.033, −0.021] and overall Brier by +0.0001 [−0.0048, +0.0052]. Coordinates lower the model's level across bands rather than fixing its reading of close-range shots, so this is weak evidence that the picture was the problem.
-- Gemini 4 Carbon: at 6–12 yd the gap to StatsBomb goes from +0.030 (image) to +0.020 (coordinates); change −0.011 [−0.026, +0.008], so the over-estimate does not change significantly: by the rule, the close-range error is in the judgment, not in reading the image.
+- Claude Opus 5.5: at 6–12 yd the gap to StatsBomb goes from +0.053 (image) to −0.014 (coordinates); change −0.067 [−0.082, −0.049]. Outside 6–12 yd the model's mean xG moves by −0.013 [−0.017, −0.008], so the close-range change beyond that level shift is −0.054 [−0.071, −0.036] (specific to close range). By body part at 6–12 yd: headers +0.130 → +0.048, foot shots −0.055 → −0.101 (gaps to StatsBomb, image → coordinates). The change is not a correction: shots the image run already rated below StatsBomb move further away, so coordinates shift the whole close-range level rather than fixing the over-rated shots. Overall Brier changes by +0.0001 [−0.0048, +0.0052] and the band's Brier by −0.0101 [−0.0239, +0.0035]. By the rule, how the model used the picture affects its close-range level, but the change does not significantly improve accuracy, and the over-estimate itself is on headers, which coordinates cannot identify either.
+- Gemini 4 Carbon: at 6–12 yd the gap to StatsBomb goes from +0.030 (image) to +0.020 (coordinates); change −0.011 [−0.026, +0.008]. Inconclusive: the interval includes no change, but its lower end is a reduction of 85% of the image run's over-estimate, so this run can neither confirm nor rule out that reading the picture contributed. It is not evidence that the error is judgment.
 
 Caveat: with coordinates the model still has to turn raw positions into distance, angle and blockers; the `--all-features` runs (results/features_ablation.md), which state those quantities directly, separate that geometric step from the judgment itself.

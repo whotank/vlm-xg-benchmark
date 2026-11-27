@@ -1,6 +1,6 @@
 # API spend
 
-From `results/cost_log.csv` (37 rows). Output tokens include thinking/reasoning tokens, which all three providers bill as output; the thinking column is the part the provider reports as thinking. Prices and sources per row are in the log. Gemma runs locally (no API cost). Latency = seconds per API call (median / 90th percentile) with parallel workers, including provider-side queueing.
+From `results/cost_log.csv` (37 rows), rebuilt from each run's `calls.jsonl` every time this script runs (rows without a run folder, the one-call setup checks, are kept as logged). Output tokens include thinking/reasoning tokens, which all three providers bill as output; the thinking column is the part the provider reports as thinking. Prices and sources per row are in the log. Gemma runs locally (no API cost). Latency = seconds per API call (median / 90th percentile) with parallel workers, including provider-side queueing.
 
 ## Per run
 
@@ -44,12 +44,28 @@ From `results/cost_log.csv` (37 rows). Output tokens include thinking/reasoning 
 | setup: smoke test | setup_smoke_gemini | thinking medium | 1 | 1 (0) | 1,286 | 0 | 0 | 606 (561) | $0.01 | $0.0065 |  | complete |
 | setup: smoke test | setup_smoke_openai | thinking medium | 1 | 1 (0) | 401 | 0 | 0 | 43 (0) | $0.00 | $0.0049 |  | complete |
 
+## Per stage
+
+| Stage | Rows | Calls | Cost |
+|---|---|---|---|
+| 3: Gemini 4 zero-shot | 3 | 900 | $7.24 |
+| 4: few-shot set A | 6 | 1,806 | $19.87 |
+| 5: body-part context | 2 | 600 | $3.20 |
+| 6: few-shot set B | 6 | 1,800 | $19.16 |
+| coords: freeze frame as text (perception vs judgment) | 2 | 600 | $3.75 |
+| extra: zero-shot rerun (noise control) | 2 | 600 | $3.21 |
+| features: VLM + all pre-shot features | 3 | 900 | $4.66 |
+| hybrid: perception | 3 | 750 | $14.43 |
+| optional: GPT-6.2 Astra zero-shot | 1 | 300 | $1.78 |
+| probe: contamination | 6 | 504 | $3.38 |
+| setup: smoke test | 3 | 3 | $0.02 |
+
 ## Per provider
 
-| Provider | Rows | Calls | Cost | Limit |
-|---|---|---|---|---|
-| anthropic | 14 | 3,475 | $26.22 | $30 |
-| gemini | 17 | 4,219 | $45.83 | $50 |
-| openai | 6 | 1,069 | $8.66 | $30 |
-| **Total** | 37 | 8,763 | **$80.71** | $100 |
+| Provider | Rows | Calls (failed) | Cost | Limit | Left |
+|---|---|---|---|---|---|
+| anthropic | 14 | 3,475 (0) | $26.22 | $30 | $3.78 |
+| gemini | 17 | 4,219 (0) | $45.83 | $50 | $4.17 |
+| openai | 6 | 1,069 (0) | $8.66 | $30 | $21.34 |
+| **Total** | 37 | 8,763 (0) | **$80.71** | $100 | $19.29 |
 

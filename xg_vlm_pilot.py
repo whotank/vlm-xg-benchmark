@@ -686,7 +686,9 @@ def cost_row(run, cfg, out_dir, status, notes=""):
     tot = lambda k: int(sum((c.get("usage") or {}).get(k) or 0 for c in calls))
     think = [(c.get("usage") or {}).get("thinking_tokens") for c in api]
     days = sorted({c["ts"][:10] for c in calls if c.get("ts")})
-    price = price_for(cfg["model"])
+    # prices as of the run's first call (Carbon's price changes on 2026-12-01; per-call costs are stored at call time)
+    first_day = datetime.datetime.fromisoformat(days[0]) if days else None
+    price = price_for(cfg["model"], first_day)
     cost = sum(c.get("cost_usd") or 0 for c in calls) if price else None
     return dict(
         date=(days[0] if len(days) == 1 else f"{days[0]}..{days[-1]}") if days else "",

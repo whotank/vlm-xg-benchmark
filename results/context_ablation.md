@@ -2,6 +2,8 @@
 
 Evaluation set: the 298 common shots of compare_models.py (42 goals, 63 matches). The context runs add one prompt line, "Body part used: <part>."; everything else (image, prompt, settings) is unchanged. Brackets: 95% match-clustered bootstrap intervals (2,000 resamples of matches, seed 0); Δ = with context − without; p = two-sided bootstrap p-value. Foot = left or right foot.
 
+Claude Opus 5.5's no-context run is the original zero-shot run, whose images were rendered in the authors' environment; its context run and its no-context rerun (`claude_opus_5_5_rerun`, the same-environment zero-shot) used images rendered in this environment with the same code. The rerun rows below show how much the no-context answers move between those two runs. Gemini 4 Carbon's runs were all rendered here.
+
 ## Claude Opus 5.5
 
 Runs: `claude_opus_5_5` (no context) vs `claude_opus_5_5_context` (body part given); control rerun without context: `claude_opus_5_5_rerun`.

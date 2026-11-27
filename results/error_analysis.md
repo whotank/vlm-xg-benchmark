@@ -1,42 +1,56 @@
 # Error analysis: which shots do the VLMs get wrong?
 
-Evaluation set: the 298 common shots (42 goals). Frontier = Gemini 4 Carbon, Gemini 4 Neon, GPT-6.2 Astra, Claude Opus 5.5, Gemini 4 Hydrogen (zero-shot, image only). Gap = frontier mean xG − StatsBomb xG. Excess Brier = (frontier mean − goal)² − (StatsBomb − goal)²; its mean is the Brier gap of the averaged frontier prediction to StatsBomb (+0.0078 here), and each group's share says where that gap accumulates. Brackets: 95% match-clustered bootstrap intervals.
+Evaluation set: the 298 common shots (42 goals). Frontier = Gemini 4 Carbon, Gemini 4 Neon, GPT-6.2 Astra, Claude Opus 5.5, Gemini 4 Hydrogen (zero-shot, image only). Gap = frontier mean xG − StatsBomb xG. Excess Brier = (frontier mean − goal)² − (StatsBomb − goal)²; its mean is the Brier gap of the averaged frontier prediction to StatsBomb: +0.0078 [-0.0008, +0.0156]. A group's contribution is the sum of its shots' excess divided by all 298 shots (contributions add up to that total); its share is the contribution divided by the total. The share is a ratio of two noisy sums, so its interval is wide: read the mean gaps and contributions first. Brackets: 95% match-clustered bootstrap intervals.
 
 ## Distance band (yards)
 
-| Group | n (goals) | StatsBomb | Frontier VLMs | Gap [95% CI] | Share of Brier gap |
-|---|---|---|---|---|---|
-| <6 | 8 (4) | 0.480 | 0.429 | −0.051 [−0.176, +0.070] | +15% |
-| 6–12 | 77 (14) | 0.168 | 0.227 | +0.059 [+0.030, +0.085] | +54% |
-| 12–18 | 79 (18) | 0.103 | 0.112 | +0.009 [−0.008, +0.026] | +37% |
-| 18–25 | 69 (4) | 0.049 | 0.045 | −0.004 [−0.011, +0.003] | −6% |
-| 25+ | 65 (2) | 0.024 | 0.027 | +0.004 [+0.002, +0.006] | +1% |
+| Group | n (goals) | StatsBomb | Frontier VLMs | Gap [95% CI] | Contribution to ΔBrier [95% CI] | Share of ΔBrier [95% CI] |
+|---|---|---|---|---|---|---|
+| <6 | 8 (4) | 0.480 | 0.429 | −0.051 [−0.176, +0.070] | +0.0012 [−0.0018, +0.0043] | +15% [−75%, +69%] |
+| 6–12 | 77 (14) | 0.168 | 0.227 | +0.059 [+0.030, +0.085] | +0.0042 [−0.0017, +0.0094] | +54% [−27%, +115%] |
+| 12–18 | 79 (18) | 0.103 | 0.112 | +0.009 [−0.008, +0.026] | +0.0028 [+0.0004, +0.0058] | +37% [−49%, +187%] |
+| 18–25 | 69 (4) | 0.049 | 0.045 | −0.004 [−0.011, +0.003] | −0.0005 [−0.0013, +0.0002] | −6% [−56%, +17%] |
+| 25+ | 65 (2) | 0.024 | 0.027 | +0.004 [+0.002, +0.006] | +0.0001 [+0.0000, +0.0002] | +1% [−2%, +5%] |
+
+## Distance band and body part
+
+| Group | n (goals) | StatsBomb | Frontier VLMs | Gap [95% CI] | Contribution to ΔBrier [95% CI] | Share of ΔBrier [95% CI] |
+|---|---|---|---|---|---|---|
+| 12–18, foot/other | 66 (18) | 0.115 | 0.107 | −0.008 [−0.022, +0.005] | +0.0019 [−0.0005, +0.0048] | +25% [−32%, +119%] |
+| 12–18, header | 13 (0) | 0.042 | 0.137 | +0.095 [+0.065, +0.129] | +0.0009 [+0.0003, +0.0018] | +12% [−25%, +73%] |
+| 18–25, foot/other | 68 (4) | 0.050 | 0.045 | −0.005 [−0.013, +0.002] | −0.0005 [−0.0013, +0.0002] | −6% [−57%, +17%] |
+| 18–25, header | 1 (0) | 0.026 | 0.064 | +0.038 [+0.038, +0.038] | +0.0000 [+0.0000, +0.0000] | +0% [+0%, +1%] |
+| 25+, foot/other | 65 (2) | 0.024 | 0.027 | +0.004 [+0.002, +0.006] | +0.0001 [+0.0000, +0.0002] | +1% [−2%, +5%] |
+| 6–12, foot/other | 32 (9) | 0.271 | 0.231 | −0.040 [−0.092, +0.004] | +0.0024 [−0.0011, +0.0062] | +31% [−42%, +174%] |
+| 6–12, header | 45 (5) | 0.095 | 0.224 | +0.129 [+0.119, +0.139] | +0.0018 [−0.0031, +0.0058] | +23% [−132%, +105%] |
+| <6, foot/other | 4 (2) | 0.637 | 0.466 | −0.172 [−0.307, −0.055] | +0.0011 [−0.0007, +0.0038] | +14% [−30%, +66%] |
+| <6, header | 4 (2) | 0.322 | 0.392 | +0.070 [−0.143, +0.160] | +0.0000 [−0.0022, +0.0017] | +0% [−93%, +60%] |
 
 ## Shot kind
 
-| Group | n (goals) | StatsBomb | Frontier VLMs | Gap [95% CI] | Share of Brier gap |
-|---|---|---|---|---|---|
-| Foot, open play | 165 (25) | 0.109 | 0.094 | −0.015 [−0.025, −0.006] | +62% |
-| Foot, set piece | 70 (10) | 0.081 | 0.081 | −0.001 [−0.013, +0.012] | +3% |
-| Header | 63 (7) | 0.098 | 0.214 | +0.117 [+0.103, +0.130] | +36% |
+| Group | n (goals) | StatsBomb | Frontier VLMs | Gap [95% CI] | Contribution to ΔBrier [95% CI] | Share of ΔBrier [95% CI] |
+|---|---|---|---|---|---|---|
+| Foot, open play | 165 (25) | 0.109 | 0.094 | −0.015 [−0.025, −0.006] | +0.0048 [+0.0005, +0.0096] | +62% [−75%, +284%] |
+| Foot, set piece | 70 (10) | 0.081 | 0.081 | −0.001 [−0.013, +0.012] | +0.0002 [−0.0020, +0.0030] | +3% [−67%, +57%] |
+| Header | 63 (7) | 0.098 | 0.214 | +0.117 [+0.103, +0.130] | +0.0028 [−0.0041, +0.0079] | +36% [−162%, +152%] |
 
 ## Keeper distance to the shooter
 
-| Group | n (goals) | StatsBomb | Frontier VLMs | Gap [95% CI] | Share of Brier gap |
-|---|---|---|---|---|---|
-| < 4 yd | 14 (4) | 0.325 | 0.285 | −0.041 [−0.101, +0.024] | +20% |
-| 4–8 yd | 48 (16) | 0.250 | 0.266 | +0.016 [−0.027, +0.059] | +54% |
-| 8–12 yd | 72 (8) | 0.087 | 0.149 | +0.062 [+0.044, +0.080] | +26% |
-| 12+ yd | 164 (14) | 0.043 | 0.044 | +0.001 [−0.003, +0.004] | +0% |
+| Group | n (goals) | StatsBomb | Frontier VLMs | Gap [95% CI] | Contribution to ΔBrier [95% CI] | Share of ΔBrier [95% CI] |
+|---|---|---|---|---|---|---|
+| < 4 yd | 14 (4) | 0.325 | 0.285 | −0.041 [−0.101, +0.024] | +0.0015 [−0.0004, +0.0038] | +20% [−29%, +99%] |
+| 4–8 yd | 48 (16) | 0.250 | 0.266 | +0.016 [−0.027, +0.059] | +0.0042 [−0.0036, +0.0110] | +54% [−114%, +172%] |
+| 8–12 yd | 72 (8) | 0.087 | 0.149 | +0.062 [+0.044, +0.080] | +0.0020 [−0.0008, +0.0046] | +26% [−48%, +152%] |
+| 12+ yd | 164 (14) | 0.043 | 0.044 | +0.001 [−0.003, +0.004] | +0.0000 [−0.0009, +0.0010] | +0% [−28%, +26%] |
 
 ## Opponents in the shooting cone
 
-| Group | n (goals) | StatsBomb | Frontier VLMs | Gap [95% CI] | Share of Brier gap |
-|---|---|---|---|---|---|
-| 0 | 8 (5) | 0.489 | 0.321 | −0.168 [−0.277, −0.060] | +43% |
-| 1 | 136 (26) | 0.134 | 0.157 | +0.023 [+0.004, +0.043] | +53% |
-| 2 | 104 (8) | 0.056 | 0.079 | +0.023 [+0.013, +0.034] | +0% |
-| 3+ | 50 (3) | 0.039 | 0.050 | +0.011 [+0.004, +0.018] | +3% |
+| Group | n (goals) | StatsBomb | Frontier VLMs | Gap [95% CI] | Contribution to ΔBrier [95% CI] | Share of ΔBrier [95% CI] |
+|---|---|---|---|---|---|---|
+| 0 | 8 (5) | 0.489 | 0.321 | −0.168 [−0.277, −0.060] | +0.0034 [+0.0008, +0.0069] | +43% [−65%, +224%] |
+| 1 | 136 (26) | 0.134 | 0.157 | +0.023 [+0.004, +0.043] | +0.0041 [−0.0024, +0.0102] | +53% [−48%, +134%] |
+| 2 | 104 (8) | 0.056 | 0.079 | +0.023 [+0.013, +0.034] | +0.0000 [−0.0024, +0.0021] | +0% [−109%, +68%] |
+| 3+ | 50 (3) | 0.039 | 0.050 | +0.011 [+0.004, +0.018] | +0.0003 [+0.0000, +0.0006] | +3% [−6%, +19%] |
 
 ## What drives the gap (OLS on standardised features)
 

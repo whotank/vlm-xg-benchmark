@@ -101,31 +101,65 @@ def main():
         L.append(f"| {a} | {preds[a][head].mean():.3f} | {preds[b][head].mean():.3f} | "
                  f"{fs(preds[b][head].mean() - preds[a][head].mean(), *C.ci(d))} |")
 
+    L += ["", "## By distance band and body part", "",
+          "Most 6–12 yd shots are headers, which StatsBomb rates far lower than foot shots from the same distance and "
+          "neither input can identify. Gap = mean xG − StatsBomb mean in the cell; change = coordinates − image (paired).", "",
+          "| Model | Band (yd) | Body part | n (goals) | StatsBomb | Image: mean (gap) | Coordinates: mean (gap) | Change [95% CI] | p |",
+          "|---|---|---|---|---|---|---|---|---|"]
+    for a, b in pairs:
+        for j, bl in enumerate(C.BAND_LABELS):
+            for body, mb in [("header", (bands == j) & head), ("foot/other", (bands == j) & ~head)]:
+                if not mb.sum():
+                    continue
+                dm = boot(C.mean_xg, preds[b], mb) - boot(C.mean_xg, preds[a], mb)
+                ma, mc, ms = preds[a][mb].mean(), preds[b][mb].mean(), sb[mb].mean()
+                L.append(f"| {a} | {bl} | {body} | {mb.sum()} ({int(y[mb].sum())}) | {ms:.3f} | {ma:.3f} ({ma - ms:+.3f}) | "
+                         f"{mc:.3f} ({mc - ms:+.3f}) | {fs(mc - ma, *C.ci(dm))} | {C.fmt_p(C.boot_p(dm))} |"
+                         .replace("(-", "(−"))
+
     # reading by the rule set in advance: does the 6-12 yd over-estimate shrink? Plus a check that the change is
-    # specific to close range rather than a shift of the model's whole level (which would not mean better reading).
+    # specific to close range rather than a shift of the model's whole level (which would not mean better reading):
+    # the level shift is measured on the shots outside the 6-12 band, so the band's own change does not inflate it.
     L += ["", "## Reading (rule fixed before the runs, plus a level-shift check)", ""]
+    sgn = lambda v: f"{v:+.3f}".replace("-", "−")
+    rng = lambda lo, hi: f"[{sgn(lo)}, {sgn(hi)}]"
     for r in [r for r in rows if r["band"] == "6–12"]:
         a, b = [p for p in pairs if p[0] == r["model"]][0]
-        d_all = boot(C.mean_xg, preds[b]) - boot(C.mean_xg, preds[a])
-        lo_all, hi_all = C.ci(d_all)
-        shift = preds[b].mean() - preds[a].mean()
+        close = bands == C.BAND_LABELS.index("6–12")
+        d_in = boot(C.mean_xg, preds[b], close) - boot(C.mean_xg, preds[a], close)
+        d_out = boot(C.mean_xg, preds[b], ~close) - boot(C.mean_xg, preds[a], ~close)
+        out_shift = preds[b][~close].mean() - preds[a][~close].mean()
+        spec = d_in - d_out   # close-range change beyond the change elsewhere (paired, same resamples)
+        spec_v = r["change"] - out_shift
         d_brier = boot(C.brier, preds[b]) - boot(C.brier, preds[a])
+        img_gap = r["mean_image"] - r["statsbomb"]
         shrinks, grows = r["change_hi"] < 0, r["change_lo"] > 0
-        level_shift = hi_all < 0 or lo_all > 0
-        verdict = ("shrinks significantly" if shrinks else "grows significantly" if grows else
-                   "does not change significantly: by the rule, the close-range error is in the judgment, not in "
-                   "reading the image")
-        line = (f"- {r['model']}: at 6–12 yd the gap to StatsBomb goes from {r['mean_image'] - r['statsbomb']:+.3f} "
-                f"(image) to {r['mean_coords'] - r['statsbomb']:+.3f} (coordinates); change {r['change']:+.3f} "
-                f"[{r['change_lo']:+.3f}, {r['change_hi']:+.3f}], so the over-estimate {verdict}.")
-        if shrinks and level_shift:
-            line += (f" But the change is not specific to close range: the model's mean xG over all shots moves by "
-                     f"{shift:+.3f} [{lo_all:+.3f}, {hi_all:+.3f}] and overall Brier by "
-                     f"{C.brier(y, preds[b]) - C.brier(y, preds[a]):+.4f} [{C.ci(d_brier)[0]:+.4f}, "
-                     f"{C.ci(d_brier)[1]:+.4f}]. Coordinates lower the model's level across bands rather than fixing "
-                     "its reading of close-range shots, so this is weak evidence that the picture was the problem.")
-        elif shrinks:
-            line += " The overall level does not move, so the change is specific to close range: reading the picture was part of the problem."
+        line = (f"- {r['model']}: at 6–12 yd the gap to StatsBomb goes from {sgn(img_gap)} (image) to "
+                f"{sgn(r['mean_coords'] - r['statsbomb'])} (coordinates); change {sgn(r['change'])} "
+                f"{rng(r['change_lo'], r['change_hi'])}.")
+        if shrinks or grows:
+            line += (f" Outside 6–12 yd the model's mean xG moves by {sgn(out_shift)} {rng(*C.ci(d_out))}, so the "
+                     f"close-range change beyond that level shift is {sgn(spec_v)} {rng(*C.ci(spec))}"
+                     + (" (specific to close range)." if C.ci(spec)[1] < 0 or C.ci(spec)[0] > 0 else
+                        " (not distinguishable from the level shift)."))
+            gh = [preds[k][close & head].mean() - sb[close & head].mean() for k in (a, b)]
+            gf = [preds[k][close & ~head].mean() - sb[close & ~head].mean() for k in (a, b)]
+            line += (f" By body part at 6–12 yd: headers {sgn(gh[0])} → {sgn(gh[1])}, foot shots {sgn(gf[0])} → "
+                     f"{sgn(gf[1])} (gaps to StatsBomb, image → coordinates).")
+            if (gf[1] < gf[0] < 0) or (gh[1] > gh[0] > 0):
+                line += (" The change is not a correction: shots the image run already rated "
+                         f"{'below' if gf[0] < 0 else 'above'} StatsBomb move further away, so coordinates shift the "
+                         "whole close-range level rather than fixing the over-rated shots.")
+            line += (f" Overall Brier changes by {C.brier(y, preds[b]) - C.brier(y, preds[a]):+.4f} "
+                     f"[{C.ci(d_brier)[0]:+.4f}, {C.ci(d_brier)[1]:+.4f}] and the band's Brier by "
+                     f"{r['brier_coords'] - r['brier_image']:+.4f} [{r['dbrier_lo']:+.4f}, {r['dbrier_hi']:+.4f}]. By "
+                     "the rule, how the model used the picture affects its close-range level, but the change does not "
+                     "significantly improve accuracy, and the over-estimate itself is on headers, which coordinates "
+                     "cannot identify either.")
+        else:
+            line += (f" Inconclusive: the interval includes no change, but its lower end is a reduction of "
+                     f"{-r['change_lo'] / img_gap:.0%} of the image run's over-estimate, so this run can neither confirm "
+                     "nor rule out that reading the picture contributed. It is not evidence that the error is judgment.")
         L.append(line.replace("+-", "−").replace("[-", "[−").replace(" -0", " −0"))
     L += ["", "Caveat: with coordinates the model still has to turn raw positions into distance, angle and blockers; "
           "the `--all-features` runs (results/features_ablation.md), which state those quantities directly, separate "

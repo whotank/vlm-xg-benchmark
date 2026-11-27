@@ -7,6 +7,8 @@ For every run that compare_models.py picks up (same common shots), plus StatsBom
 baseline as reference rows:
   - Platt scaling: unpenalised logistic regression of goal on logit(p)
   - Isotonic regression: monotone, non-decreasing step function of p
+Platt works on logit(p) with p clipped to [0.001, 0.999]; isotonic takes p as it is. Both maps' outputs (the
+recalibrated predictions) are clipped to [0.001, 0.999], as in the pilot's log loss, not to [0, 1].
 Both are fitted with 5-fold cross-validation grouped by match_id, so each shot is recalibrated by a map
 that never saw its match. The folds are the logistic baseline's frozen match-to-fold assignment
 (results/baseline_folds.json), so the split does not depend on the scikit-learn version. The out-of-fold predictions are scored
@@ -126,7 +128,8 @@ def main():
          f"Evaluation set: the {len(y)} common shots of compare_models.py ({y.sum()} goals, {len(set(g))} matches). "
          "Main results stay raw (zero-shot); this table shows what a monotone recalibration learned from labelled "
          "shots would change.", "",
-         "Method: Platt scaling (unpenalised logistic regression of goal on logit p) and isotonic regression, each "
+         "Method: Platt scaling (unpenalised logistic regression of goal on logit p, p clipped to [0.001, 0.999]) "
+         "and isotonic regression (non-decreasing); the recalibrated predictions are clipped to [0.001, 0.999]. Each is "
          f"fitted with {N_SPLITS}-fold cross-validation grouped by match (the baseline's frozen match folds, "
          "results/baseline_folds.json), so every shot is recalibrated by a map that never saw its match. Brackets: 95% match-clustered bootstrap intervals (2,000 resamples of "
          "matches, seed 0) of the out-of-fold scores; Δ = recalibrated − raw (negative = recalibration helps), "
