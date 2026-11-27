@@ -43,6 +43,22 @@ from an image of a shot situation alone, and where they diverge from established
   `figure_frontier.png` and `figure_forest.png`.
 - `recalibrate.py`, `fewshot_analysis.py`, `context_ablation.py`, `features_ablation.py`, `coords_analysis.py`,
   `error_analysis.py`, `cost_summary.py`: side analyses (one markdown table each in `results/`).
+- `probe_runs.py`: queries that are not an xG, with the pipeline's backends, cost log, budget guard and run_config
+  rails. Tasks:
+  - `--task identify`: contamination probe A, "which match is this image?"
+  - `--task recall`: probe B. Match, clock and shooter as text; remembered? goal? xG?
+  - `--task perception`: the hybrid design. Read distance, angle and opponents in the triangle off the image.
+  - `--view`: runs identify on captured broadcast frames.
+
+  Folders: `probe_identify_<model>`, `probe_recall_<model>`, `<model>_perception`,
+  `probe_identify_frames_<view>_<model>`. Each has `answers.csv` (parsed answers plus the shot's facts).
+- `contamination_probe.py` -> `results/contamination_probe.md` (+ `_shots.csv`); `hybrid.py` -> `results/hybrid.md`
+  (+ `hybrid_shots.csv`). The probes' shots: `results/probe_sample.json`.
+- Broadcast-frame pilot:
+  - `make_frame_list.py` -> `docs/frame_capture_list.csv` (30 shots); capture guide `docs/frame_capture.md`
+  - `xg_vlm_pilot.py --input frame --view main` (folders `<model>_frames_<view>`)
+  - `frames_analysis.py` -> `results/frames_pilot.md`
+  - Frames live in `data_frames/`, which is gitignored: never commit them (broadcast footage).
 - `results/<run>/`: `summary.txt`, `shots.csv` (per-shot predictions and rationales), `vlm_cache.jsonl`
   (answers; newer runs also store token usage, cost and the SHA-1 of the image sent), and for newer runs
   `calls.jsonl` (every API call, including failures) and `run_config.json` (settings and invocations).
@@ -76,9 +92,14 @@ python xg_vlm_pilot.py --backend anthropic --model claude-opus-5-5 --input coord
 python baselines.py && python compare_models.py && python recalibrate.py && python fewshot_analysis.py
 python context_ablation.py && python features_ablation.py && python coords_analysis.py
 python error_analysis.py && python cost_summary.py
+python probe_runs.py --task perception --backend anthropic --model claude-opus-5-5 --workers 4   # hybrid readings
+python probe_runs.py --task identify --backend anthropic --model claude-opus-5-5 --workers 4     # contamination A
+python probe_runs.py --task recall --backend anthropic --model claude-opus-5-5 --workers 4       # contamination B
+python xg_vlm_pilot.py --backend gemini --model gemini-4-carbon --thinking-level medium --input frame --view main
+python hybrid.py && python contamination_probe.py && python make_frame_list.py && python frames_analysis.py
 ```
 Answers are cached per run in `results/<run>/vlm_cache.jsonl`; reruns only query missing shots.
-Folder names: `<model>` + `_context` / `_allfeat` / `_coords` + `_k{n}` (+ `_setB`) + `_<tag>`.
+Folder names: `<model>` + `_context` / `_allfeat` / `_coords` / `_frames_<view>` + `_k{n}` (+ `_setB`) + `_<tag>`.
 
 ## Results (298 common shots; 95% match-clustered bootstrap CIs; full tables in `results/*.md`)
 Zero-shot, image only:
@@ -125,6 +146,33 @@ Key findings:
   (+0.053 -> -0.014), but its whole level drops (mean 0.109 -> 0.082, 12-18 yd now 0.032 below StatsBomb,
   headers 0.211 -> 0.142 although neither input has the body part) with unchanged Brier (+0.000) and AUC
   (0.721 both): a level shift, not better reading. `results/coords_vs_image.md`.
+- Hybrid (`results/hybrid.md`): the models read the geometry off the image, the map-only logistic model scores the
+  readings.
+  - Asked only to measure, Opus and GPT-6.2 Astra read the distance to within 0.12 / 0.07 yd on average (r = 1.000)
+    and the angle to within 0.4° / 0.2°. They count the opponents in the shooting triangle exactly in 83% / 91% of
+    shots (97–100% within one). Gemini 4 Carbon's 150-shot measuring run was still in progress when this was
+    written.
+  - Scored by the map-only model, the readings match the true geometry: ΔBrier +0.002 / +0.001 (n.s.). The small
+    loss comes from miscounted opponents (AUC 0.695 / 0.708 vs 0.721).
+  - So reading the picture is not what separates the VLMs from the statistical models. Their own xG differs from the
+    hybrid by −0.001 / −0.003 (n.s.): that is judgment.
+  - At 6–12 yd the map-only model itself averages 0.204 (StatsBomb 0.168), because it does not know headers. Opus's
+    own xG there is 0.221, GPT's 0.298: GPT's extra close-range level is judgment, not perception.
+  - Caveat: the readings come from a separate request that only asks for measurements. In the xG request the models
+    think much less.
+- Contamination (`results/contamination_probe.md`; 84 shots: 42 goals, 42 misses):
+  - Told the match, the minute and the shooter as text, Opus, Carbon and GPT label every shot correctly: sensitivity
+    and specificity 100%, AUC 1.000 vs StatsBomb 0.790. They claim to remember every goal but only 10–57% of the
+    misses; they infer the misses from knowing each match's goals.
+  - From the rendered maps no model recognises the match. Opus never guesses, and GPT's best guesses are at chance
+    (a correct team 11% vs 9%). Carbon's 3 claimed recognitions are all wrong (famous club goals).
+  - Without claiming recognition, Carbon's best guesses name two famous goals: Messi vs Mexico and Asano vs Germany
+    (confidence 0.15 / 0.12). Its image-only xG for them matches StatsBomb (0.03 / 0.04 vs 0.034 / 0.027), and
+    dropping them moves any ΔBrier by ≤ 0.0005.
+  - So the image-only results are not recall, but real footage, where the match and the moment can be identified,
+    needs the identify probe.
+  - Told the shot and asked for an xG "regardless of the outcome", Opus's xG separates goals from misses better than
+    StatsBomb (AUC 0.898 vs 0.790, p = 0.002): the known outcome leaks into the estimate.
 - Error analysis (`results/error_analysis.md`): 54% of the frontier models' Brier gap to StatsBomb accrues at
   6-12 yd and 36% on headers (gap +0.117); the largest consensus over-estimates are all headers from 7-13 yd,
   the largest under-estimates close-range foot shots that went in, usually with the keeper out of position
@@ -241,6 +289,48 @@ Recorded so the paper's methods section and later runs stay consistent.
   distance left out: collinear with distance and keeper position) with match-clustered CIs, correlation of the
   models' gaps, a gallery of the largest consensus disagreements, rationale phrases. `results/error_analysis.md`.
 
+### Contamination probes, hybrid perception, broadcast-frame pilot (added late Nov 27)
+- Match facts: `load_shots()` also keeps minute, second, period, player, team and the match's teams, date and stage.
+  The cache was rebuilt: same 1,430 shots in the same order, the same 300-shot sample, and every earlier column
+  identical. None of these facts is ever sent in an xG prompt.
+- Probe sample (`results/probe_sample.json`): all 42 goals among the 298 common shots plus 42 non-goals (seed 2026),
+  queried in a seeded random order. Settings as in the xG runs (Gemini/GPT thinking or reasoning medium, no output
+  cap; Opus without a thinking parameter) except Opus `max_tokens` 1500 (thinking counts toward it).
+- Probe A (identify): the xG prompt's role and legend lines and the same image, then:
+  - asks whether the model recognises the shot, and for a best guess of competition, year, both teams, shooter
+    and its confidence (JSON)
+  - a best guess counts as right for:
+    - World Cup: the competition names the World Cup and not a club, women's, youth or qualifying competition
+    - 2022
+    - either team / both teams, with aliases for USA, Korea Republic, IR Iran and Holland
+    - the shooting team
+    - the shooter: the last word of the guess is a word of his full name or nickname
+  - chance = the same guesses scored against the facts of permuted shots (2,000 permutations)
+- Probe B (recall): text only, no positions. The prompt gives:
+  - stage, teams and date
+  - the match clock as mm:ss (StatsBomb's event clock) and the half
+  - the minute as in match reports: clock minute + 1, stoppage time as 45+n / 90+n. Checked on Messi 64',
+    Richarlison 62' / 73', Mbappé 81' and Di María 36'.
+  - the shooter's common name (StatsBomb lineup nickname, else full name) and team
+
+  It asks: remembered, scored (yes / no / unknown), p_goal, xg ("the quality of the chance, regardless of the
+  outcome") and a note.
+- Perception (hybrid): role and legend lines, the scale from the pitch markings (pitch 80 yd wide, penalty area
+  18 x 44, six-yard box 6 x 20, penalty spot 12 yd, goal 8 yd), then distance to the centre of the goal (yd), the
+  angle between the posts (degrees) and the opponents (red and orange) inside the shooter–posts triangle.
+  - The hybrid xG applies the map-only baseline's five fold models (refitted; checked to reproduce
+    `baseline_image_xg` to 1e-9) to the readings, angle converted to radians, each shot scored by the fold model that
+    never saw its match. Partial hybrids swap in one reading at a time.
+  - Opus and GPT-6.2 Astra ran all 300 shots. Gemini 4 Carbon thinks about 2,700 tokens per measurement (one call
+    25,600, $0.26), about $0.035 per shot, so it ran the first 150 shots of the sample. This keeps Gemini budget for
+    the frame pilot.
+- Frame pilot: 30 shots, the 12 error-gallery shots plus 18 random shots stratified by distance band (seed 2027).
+  - Frame prompt = the zero-shot prompt with the three image lines replaced by "The image is a frame from the
+    television broadcast of a professional match at the moment a shot is taken (the player striking the ball is the
+    shooter)."
+  - Frames are converted to PNG with the long side at most 1280 px. The score bar is cropped by hand.
+  - Runs query only the shots that have a frame; the identify probe also runs on the frames (`--view`).
+
 ### Model settings
 - Claude Opus 5.5: same request as the original run (no thinking or effort parameter, `max_tokens` 600; Opus 5.5
   always thinks at its default effort, medium, and the thinking counts toward `max_tokens`). No server-side
@@ -296,12 +386,22 @@ Recorded so the paper's methods section and later runs stay consistent.
   branch was created through the GitHub API, after which pushes worked.
 - Only the Gemma run is deterministic (temperature 0). API runs used default sampling.
 - Running analyses while runs are in progress is safe: unfinished runs are skipped.
+- Gemini 4 Carbon can think for a very long time on measuring tasks (perception: median ~2,200 thinking tokens, one call
+  25,600). Project the cost from the first 20 shots before running it on many shots.
+- The models remember 2022 World Cup outcomes (`results/contamination_probe.md`). Never put match, date, minute or
+  player names in an xG prompt, and treat any real-footage result as possibly recalled unless the identify probe on
+  the same frames comes back empty.
 
 ## Next steps (for the full paper)
-1. Hybrid design: ask the VLM to extract geometric features (distance, angle, defenders, keeper
-   position), feed them to the logistic model, and compare: true features vs VLM-read features vs
-   direct VLM xG. This separates perception errors from judgment errors.
-2. Gemma few-shot runs in Colab (`docs/colab_gemma_fewshot.md`).
-3. More repeated runs and prompt variants to measure answer stability (one zero-shot rerun per model so far).
-4. Rendering check: does the close-range misreading change with smaller markers or a different view?
-5. More data: other StatsBomb open competitions; later, broadcast video and pose.
+1. Hybrid design: done for distance, angle and opponents in the triangle (`results/hybrid.md`). Possible follow-ups:
+   - "Measure, then estimate" in one request: the models read the geometry almost exactly when asked, but think far
+     less in the xG request.
+   - Keeper position as a fourth reading.
+2. Broadcast-frame pilot: capture the 30 frames (`docs/frame_capture.md`), then run the frame xG and identify
+   commands there and `frames_analysis.py`.
+3. Gemma few-shot runs in Colab (`docs/colab_gemma_fewshot.md`).
+4. More repeated runs and prompt variants to measure answer stability (one zero-shot rerun per model so far).
+5. Rendering check: lower priority now. Asked to measure, the models read the drawing almost exactly
+   (`results/hybrid.md`).
+6. More data: other StatsBomb open competitions; later, broadcast video and pose. The models remember 2022 World Cup
+   outcomes, so footage needs the identify probe.
