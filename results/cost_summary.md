@@ -1,6 +1,6 @@
 # API spend
 
-From `results/cost_log.csv` (28 rows). Output tokens include thinking/reasoning tokens, which all three providers bill as output; the thinking column is the part the provider reports as thinking. Prices and sources per row are in the log. Gemma runs locally (no API cost). Latency = seconds per API call (median / 90th percentile) with parallel workers, including provider-side queueing.
+From `results/cost_log.csv` (37 rows). Output tokens include thinking/reasoning tokens, which all three providers bill as output; the thinking column is the part the provider reports as thinking. Prices and sources per row are in the log. Gemma runs locally (no API cost). Latency = seconds per API call (median / 90th percentile) with parallel workers, including provider-side queueing.
 
 ## Per run
 
@@ -30,7 +30,16 @@ From `results/cost_log.csv` (28 rows). Output tokens include thinking/reasoning 
 | features: VLM + all pre-shot features | claude_opus_5_5_allfeat | all pre-shot features | 300 | 300 (0) | 222,301 | 0 | 0 | 28,852 (4,854) | $1.47 | $0.0049 | 1 / 2 | complete |
 | features: VLM + all pre-shot features | gemini_4_carbon_allfeat | thinking medium, all pre-shot features | 300 | 300 (0) | 434,972 | 0 | 0 | 40,209 (25,207) | $1.27 | $0.0042 | 7 / 45 | complete |
 | features: VLM + all pre-shot features | gpt_6.2_astra_allfeat | thinking medium, all pre-shot features | 300 | 300 (0) | 168,418 | 0 | 0 | 14,464 (247) | $1.93 | $0.0064 | 3 / 4 | complete |
+| hybrid: perception | claude_opus_5_5_perception | perception: read distance, angle, opponents in triangle from the image | 300 | 300 (0) | 205,500 | 0 | 0 | 181,067 (170,389) | $4.44 | $0.0148 | 6 / 8 | complete |
+| hybrid: perception | gemini_4_carbon_perception | thinking medium, perception: read distance, angle, opponents in triangle from the image | 2 | 2 (0) | 2,830 | 0 | 0 | 6,717 (6,651) | $0.07 | $0.0364 | 37 / 96 | complete |
+| hybrid: perception | gpt_6.2_astra_perception | thinking medium, perception: read distance, angle, opponents in triangle from the image | 300 | 300 (0) | 155,700 | 0 | 0 | 67,355 (58,673) | $3.94 | $0.0131 | 7 / 14 | complete |
 | optional: GPT-6.2 Astra zero-shot | gpt_6.2_astra | thinking medium | 300 | 300 (0) | 120,300 | 0 | 0 | 20,487 (7,384) | $1.78 | $0.0059 | 4 / 6 | complete |
+| probe: contamination | probe_identify_claude_opus_5_5 | probe: identify the match from the image | 84 | 84 (0) | 53,928 | 0 | 0 | 6,483 (603) | $0.35 | $0.0041 | 1 / 2 | complete |
+| probe: contamination | probe_recall_claude_opus_5_5 | probe: recall the shot from match, clock and player (text only) | 84 | 84 (0) | 28,552 | 0 | 0 | 18,771 (10,504) | $0.49 | $0.0058 | 3 / 4 | complete |
+| probe: contamination | probe_identify_gemini_4_carbon | thinking medium, probe: identify the match from the image | 84 | 84 (0) | 117,180 | 0 | 0 | 99,879 (94,542) | $1.23 | $0.0147 | 19 / 47 | complete |
+| probe: contamination | probe_recall_gemini_4_carbon | thinking medium, probe: recall the shot from match, clock and player (text only) | 84 | 84 (0) | 29,045 | 0 | 0 | 24,788 (18,593) | $0.31 | $0.0036 | 7 / 10 | complete |
+| probe: contamination | probe_identify_gpt_6.2_astra | thinking medium, probe: identify the match from the image | 84 | 84 (0) | 42,588 | 0 | 0 | 6,699 (2,251) | $0.61 | $0.0072 | 4 / 6 | complete |
+| probe: contamination | probe_recall_gpt_6.2_astra | thinking medium, probe: recall the shot from match, clock and player (text only) | 84 | 84 (0) | 20,230 | 0 | 0 | 5,908 (985) | $0.40 | $0.0047 | 3 / 4 | complete |
 | setup: smoke test | setup_smoke_anthropic | zero-shot | 1 | 1 (0) | 507 | 0 | 0 | 151 (81) | $0.01 | $0.0050 |  | complete |
 | setup: smoke test | setup_smoke_gemini | thinking medium | 1 | 1 (0) | 1,286 | 0 | 0 | 606 (561) | $0.01 | $0.0065 |  | complete |
 | setup: smoke test | setup_smoke_openai | thinking medium | 1 | 1 (0) | 401 | 0 | 0 | 43 (0) | $0.00 | $0.0049 |  | complete |
@@ -39,8 +48,8 @@ From `results/cost_log.csv` (28 rows). Output tokens include thinking/reasoning 
 
 | Provider | Rows | Calls | Cost | Limit |
 |---|---|---|---|---|
-| anthropic | 11 | 3,007 | $20.94 | $30 |
-| gemini | 14 | 3,901 | $38.24 | $50 |
-| openai | 3 | 601 | $3.71 | $30 |
-| **Total** | 28 | 7,509 | **$62.89** | $100 |
+| anthropic | 14 | 3,475 | $26.22 | $30 |
+| gemini | 17 | 4,071 | $39.85 | $50 |
+| openai | 6 | 1,069 | $8.66 | $30 |
+| **Total** | 37 | 8,615 | **$74.73** | $100 |
 

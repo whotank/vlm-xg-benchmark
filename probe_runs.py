@@ -74,6 +74,8 @@ PERCEPTION = LEGEND + (
     "formed by the shooter and the two goalposts\n"
     'Reply with JSON only: {"distance": <number>, "angle": <number>, "opponents_in_triangle": <integer>}')
 TEMPLATE = {"identify": IDENTIFY, "recall": RECALL, "perception": PERCEPTION}
+# identify on a captured broadcast frame (--view): the frame line of xg_vlm_pilot --input frame, then the same question
+IDENTIFY_FRAME = LEGEND.splitlines(keepends=True)[0] + P.FRAME_LINES + IDENTIFY[len(LEGEND):]
 
 STAGE = {"Group Stage": "group stage", "Round of 16": "round of 16", "Quarter-finals": "quarter-final",
          "Semi-finals": "semi-final", "Final": "final", "3rd Place Final": "third-place play-off"}
@@ -134,7 +136,9 @@ def probe_sample(shots):
 
 
 # ---------------------------------------------------------------- requests and parsers
-def build_request(task, row, names):
+def build_request(task, row, names, frames=None):
+    if frames:
+        return P.Req(image=P.frame_b64(frames[row.shot_id]), prompt=IDENTIFY_FRAME)
     if task == "recall":
         who = names.get(row.player, {}).get("name", row.player)
         prompt = RECALL.format(stage=STAGE.get(row.competition_stage, row.competition_stage), home=row.home_team,
@@ -257,6 +261,9 @@ def main():
     ap.add_argument("--max-tokens", type=int, help=f"output cap (default: {ANTHROPIC_MAX_TOKENS} for anthropic, none "
                                                    "for the others)")
     ap.add_argument("--n", type=int, help="only the first n shots of the task's sample (quick test)")
+    ap.add_argument("--view", help="identify only: use the captured broadcast frames <frames-dir>/<shot_id>_<view>.png "
+                                   "instead of the drawing (docs/frame_capture.md)")
+    ap.add_argument("--frames-dir", default="data_frames")
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--max-attempts", type=int, default=3)
     ap.add_argument("--tag", default="")
@@ -266,8 +273,11 @@ def main():
     ap.add_argument("--total-limit", type=float, default=P.TOTAL_LIMIT)
     a = ap.parse_args()
 
+    if a.view and (a.task != "identify" or not re.fullmatch(r"[A-Za-z0-9]+", a.view)):
+        sys.exit("--view works with --task identify only, and must be letters and digits")
     mslug = re.sub(r"[^A-Za-z0-9.]+", "_", a.model)
-    slug = (f"{mslug}_perception" if a.task == "perception" else f"probe_{a.task}_{mslug}") + (f"_{a.tag}" if a.tag else "")
+    slug = (f"{mslug}_perception" if a.task == "perception" else
+            f"probe_identify_frames_{a.view}_{mslug}" if a.view else f"probe_{a.task}_{mslug}") + (f"_{a.tag}" if a.tag else "")
     out_dir = os.path.join(P.RESULTS, slug)
     cfg_path = os.path.join(out_dir, "run_config.json")
     blocked = os.path.join(P.DATA_CACHE, f"blocked_{a.backend}.txt")
@@ -285,7 +295,13 @@ def main():
         sys.exit(f"another process is already running {slug}")
 
     shots = P.add_baseline(P.load_shots_cached(43, 106))
-    if a.task == "perception":
+    frames = P.find_frames(a.frames_dir, a.view) if a.view else {}
+    if a.view:
+        sample = shots[shots.shot_id.isin(frames)].sort_values("shot_id").copy()
+        sample_desc = f"captured broadcast frames, view {a.view} ({len(sample)} shots)"
+        if sample.empty:
+            sys.exit(f"no frames named <shot_id>_{a.view}.png in {a.frames_dir}/")
+    elif a.task == "perception":
         sample = shots.sample(n=300, random_state=7).copy()
         sample_desc = "the xG runs' 300-shot sample (random_state=7)"
     else:
@@ -297,9 +313,13 @@ def main():
     names = player_names(shots) if a.task == "recall" else {}
 
     max_out = a.max_tokens or (ANTHROPIC_MAX_TOKENS if a.backend == "anthropic" else None)
+    template = IDENTIFY_FRAME if a.view else TEMPLATE[a.task]
     cfg = dict(task=a.task, backend=a.backend, model=a.model, thinking_level=a.thinking_level,
                max_output_tokens=max_out or "none", sample=sample_desc.split(" (")[0], shots=0,
-               context=TASK_LABEL[a.task], prompt_sha=hashlib.sha1(TEMPLATE[a.task].encode()).hexdigest()[:12])
+               context=TASK_LABEL[a.task] + (f" (broadcast frame, {a.view})" if a.view else ""),
+               prompt_sha=hashlib.sha1(template.encode()).hexdigest()[:12])
+    if a.view:
+        cfg.update(input="frame", view=a.view)
     fixed = list(cfg)
     old = {}
     if os.path.exists(cfg_path):
@@ -327,7 +347,7 @@ def main():
           f"${min(provider_room, total_room):.2f} ({a.backend} ${provider_room:.2f}, total ${total_room:.2f})")
     st = P.RunState(out_dir, price, len(todo), provider_room, total_room, a.budget_check_after)
     opt = P.Opts(thinking_level=a.thinking_level, max_tokens=max_out)
-    reqs = [(r.shot_id, build_request(a.task, r, names)) for r in todo]   # renders in the main thread
+    reqs = [(r.shot_id, build_request(a.task, r, names, frames)) for r in todo]   # renders in the main thread
 
     t0 = time.time()
     with cf.ThreadPoolExecutor(max_workers=max(1, a.workers)) as ex:

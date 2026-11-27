@@ -21,6 +21,10 @@ Ablations: few-shot in-context learning (k = 1, 5, 10 examples labelled with the
 example sets), body-part context, all pre-shot event attributes, the freeze frame as coordinates in text
 instead of an image (perception vs judgment), post-hoc recalibration (Platt and isotonic, side analysis),
 and an error analysis of the shots the models get wrong.
+Side studies: a hybrid design (the models read distance, angle and blockers off the image; the map-only logistic
+model scores the readings), contamination probes (can a model tell the match from the image; does it remember the
+outcome when told the match, minute and shooter), and a broadcast-frame pilot (hand-captured television frames
+of 30 of the same shots; capture guide in `docs/frame_capture.md`).
 Comparisons: StatsBomb xG, a logistic baseline (distance, angle, header, defenders in shooting cone), a
 map-only baseline (the same without the header flag: only what the image shows) and a logistic model on all
 pre-shot attributes, all trained with match-grouped cross-validation. Every metric has a 95% match-clustered
@@ -67,6 +71,21 @@ python xg_vlm_pilot.py --backend anthropic --model claude-opus-5-5 --all-feature
 python xg_vlm_pilot.py --backend anthropic --model claude-opus-5-5 --input coords --n 300
 ```
 
+Side studies: perception readings for the hybrid design, the two contamination probes, and the broadcast-frame pilot
+(frames are captured by hand first, see `docs/frame_capture.md`; `make_frame_list.py` writes the shot list):
+```bash
+python probe_runs.py --task perception --backend anthropic --model claude-opus-5-5 --workers 4
+```
+```bash
+python probe_runs.py --task identify --backend anthropic --model claude-opus-5-5 --workers 4
+```
+```bash
+python probe_runs.py --task recall --backend anthropic --model claude-opus-5-5 --workers 4
+```
+```bash
+python xg_vlm_pilot.py --backend anthropic --model claude-opus-5-5 --input frame --view main
+```
+
 Analysis (tables in `results/*.md`):
 ```bash
 python baselines.py
@@ -93,6 +112,15 @@ python coords_analysis.py
 python error_analysis.py
 ```
 ```bash
+python hybrid.py
+```
+```bash
+python contamination_probe.py
+```
+```bash
+python frames_analysis.py
+```
+```bash
 python cost_summary.py
 ```
 
@@ -106,12 +134,17 @@ python cost_summary.py
 - `baselines.py`: map-only baseline and the all-pre-shot-features logistic model (same frozen folds)
 - `recalibrate.py`, `fewshot_analysis.py`, `context_ablation.py`, `features_ablation.py`, `coords_analysis.py`,
   `error_analysis.py`, `cost_summary.py`: ablation, error and cost tables
+- `probe_runs.py`: queries that are not an xG (perception readings, contamination probes), with the pipeline's cost
+  log and safety rails; `hybrid.py`, `contamination_probe.py`: their analyses
+- `make_frame_list.py`, `frames_analysis.py`, `docs/frame_capture.md`, `docs/frame_capture_list.csv`: broadcast-frame
+  pilot (frames themselves are never committed)
 - `CLAUDE.md`: project context, results, design decisions and known gotchas
 - `results/<run>/`: `summary.txt`, `shots.csv` (per-shot predictions and rationales), `vlm_cache.jsonl` (answers
   with token usage), and for newer runs `calls.jsonl` (every API call) and `run_config.json` (settings)
 - `results/main_table.md`, `distance_bands.md`, `recalibration.md`, `fewshot.md`, `context_ablation.md`,
-  `features_ablation.md`, `coords_vs_image.md`, `error_analysis.md`, `baselines.md`, `cost_summary.md` (and
-  matching CSVs); `results/cost_log.csv` (one row per run); `results/baseline_coefficients.md`
+  `features_ablation.md`, `coords_vs_image.md`, `error_analysis.md`, `baselines.md`, `hybrid.md`,
+  `contamination_probe.md`, `cost_summary.md` (and matching CSVs); `results/cost_log.csv` (one row per run);
+  `results/baseline_coefficients.md`; `results/probe_sample.json` (the contamination probes' shots)
 - `results/figure_frontier.png`, `figure_forest.png`, `figure_paired.png`, `figure_error_gallery.png`: full-paper figures
 - `results/fewshot_examples.json`, `results/fewshot_examples_setB.json`: example sets (shot ids, labels, seed)
 - `results/baseline_folds.json`: frozen match-to-fold assignment of the logistic baseline

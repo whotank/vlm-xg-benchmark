@@ -67,6 +67,12 @@ IMAGE_LINES = ("The image shows a shot at the moment it is taken, drawn on a hal
                "Orange square = opposing goalkeeper.\n")
 assert IMAGE_LINES in PROMPT
 PROMPT_COORDS = PROMPT.replace(IMAGE_LINES, "{coords}")
+# --input frame: a captured television frame of the same shot (docs/frame_capture.md) instead of the drawing;
+# only the lines describing the image change.
+FRAME_LINES = ("The image is a frame from the television broadcast of a professional match at the moment a shot is "
+               "taken (the player striking the ball is the shooter).\n")
+PROMPT_FRAME = PROMPT.replace(IMAGE_LINES, FRAME_LINES)
+FRAME_EXT = (".png", ".jpg", ".jpeg")
 
 # ---------------------------------------------------------------- prices (USD per 1M tokens)
 # Thinking / reasoning tokens are billed as output tokens by all three providers.
@@ -292,6 +298,30 @@ def image_b64(row):
         render(row, path)
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
+
+
+def find_frames(frames_dir, view):
+    """{shot_id: path} for the captured frames <frames_dir>/<shot_id>_<view>.png|.jpg|.jpeg."""
+    out = {}
+    if os.path.isdir(frames_dir):
+        for fn in sorted(os.listdir(frames_dir)):
+            stem, ext = os.path.splitext(fn)
+            if ext.lower() in FRAME_EXT and stem.endswith(f"_{view}"):
+                out[stem[: -len(view) - 1]] = os.path.join(frames_dir, fn)
+    return out
+
+
+def frame_b64(path, max_side=1280):
+    """A captured broadcast frame as PNG base64 (any input format), long side at most max_side pixels."""
+    import io
+    from PIL import Image
+    im = Image.open(path).convert("RGB")
+    s = max_side / max(im.size)
+    if s < 1:
+        im = im.resize((round(im.width * s), round(im.height * s)), Image.LANCZOS)
+    buf = io.BytesIO()
+    im.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode()
 
 
 def features_block(row):
@@ -664,7 +694,8 @@ def cost_row(run, cfg, out_dir, status, notes=""):
         thinking_level=cfg.get("thinking_level") or "not set", k=cfg.get("shots", 0),
         example_set=cfg.get("example_set") if cfg.get("shots") else "",
         context="all pre-shot features" if cfg.get("all_features") else (
-            "coordinates as text (no image)" if cfg.get("input") == "coords" else cfg.get("context", False)),
+            "coordinates as text (no image)" if cfg.get("input") == "coords" else
+            f"broadcast frame ({cfg.get('view')})" if cfg.get("input") == "frame" else cfg.get("context", False)),
         max_output_tokens=cfg.get("max_output_tokens"), shots_queried=len({c["shot_id"] for c in api}),
         shots_answered=len(answers), calls=len(api), failed_calls=sum(not c.get("ok") for c in api),
         incomplete_flagged=sum(bool(a.get("incomplete")) for a in answers),
@@ -850,8 +881,11 @@ def main():
     ap.add_argument("--context", action="store_true", help="also tell the VLM the body part")
     ap.add_argument("--all-features", action="store_true",
                     help="also give the VLM every pre-shot event attribute and the exact geometry (oracle perception)")
-    ap.add_argument("--input", choices=["image", "coords"], default="image",
-                    help="coords: no image; the freeze frame is given as (x, y) coordinates in text instead")
+    ap.add_argument("--input", choices=["image", "coords", "frame"], default="image",
+                    help="coords: no image; the freeze frame is given as (x, y) coordinates in text instead. "
+                         "frame: a captured broadcast frame of the shot (only shots with a frame are queried)")
+    ap.add_argument("--frames-dir", default="data_frames", help="--input frame: folder of <shot_id>_<view>.png files")
+    ap.add_argument("--view", default="main", help="--input frame: which capture (main = live camera, replay = ...)")
     ap.add_argument("--shots", type=int, default=0, help="few-shot examples per prompt (0 = zero-shot)")
     ap.add_argument("--example-set", default="A", choices=list(EXAMPLE_FILES), help="which fixed example set")
     ap.add_argument("--thinking-level", choices=["minimal", "low", "medium", "high", "xhigh", "max"],
@@ -874,11 +908,13 @@ def main():
 
     if a.context and a.all_features:
         sys.exit("--all-features already includes the body part; use one of --context / --all-features")
-    coords = a.input == "coords"
-    if coords and (a.shots or a.context or a.all_features):
-        sys.exit("--input coords is zero-shot with the coordinates only (no --shots, --context or --all-features)")
+    coords, frame = a.input == "coords", a.input == "frame"
+    if (coords or frame) and (a.shots or a.context or a.all_features):
+        sys.exit(f"--input {a.input} is zero-shot with that input only (no --shots, --context or --all-features)")
+    if frame and not re.fullmatch(r"[A-Za-z0-9]+", a.view):
+        sys.exit("--view must be letters and digits only (it is part of the file and folder names)")
     slug = re.sub(r"[^A-Za-z0-9.]+", "_", a.model) + ("_context" if a.context else "") + \
-        ("_allfeat" if a.all_features else "") + ("_coords" if coords else "")
+        ("_allfeat" if a.all_features else "") + ("_coords" if coords else "") + (f"_frames_{a.view}" if frame else "")
     if a.shots:
         slug += f"_k{a.shots}" + ("" if a.example_set == "A" else f"_set{a.example_set}")
     if a.tag:
@@ -905,6 +941,16 @@ def main():
     shots = add_baseline(load_shots_cached(a.comp, a.season, a.refresh_data), a.comp, a.season)
     print(f"{len(shots)} non-penalty shots with freeze frames, {shots.goal.sum()} goals")
     sample = shots.sample(n=min(a.n, len(shots)), random_state=a.seed).copy()
+    frames = {}
+    if frame:   # every shot with a captured frame (docs/frame_capture_list.csv), whatever --n says
+        frames = find_frames(a.frames_dir, a.view)
+        stray = sorted(set(frames) - set(shots.shot_id))
+        if stray:
+            print(f"WARNING: {len(stray)} frame files are not named after a shot id: {', '.join(stray[:5])}")
+        sample = shots[shots.shot_id.isin(frames)].sort_values("shot_id").copy()
+        if sample.empty:
+            sys.exit(f"no frames named <shot_id>_{a.view}.png in {a.frames_dir}/ (see docs/frame_capture.md)")
+    n_run = len(sample) if frame else a.n
 
     examples, ex_spec, ex_ids = [], None, []
     if a.shots:
@@ -912,6 +958,8 @@ def main():
     prompt_tmpl = PROMPT.replace("{context}", (FEWSHOT_LINE if a.shots else "") + "{context}")
     if coords:
         prompt_tmpl = PROMPT_COORDS
+    if frame:
+        prompt_tmpl = PROMPT_FRAME
 
     import importlib.metadata as md
     versions = {}
@@ -930,6 +978,8 @@ def main():
         cfg["all_features"] = True
     if coords:           # key only when set, so older run_config.json files still match
         cfg["input"] = "coords"
+    if frame:
+        cfg.update(input="frame", view=a.view)
     fixed = list(cfg)
     old = {}
     if os.path.exists(cfg_path):
@@ -941,9 +991,9 @@ def main():
         cfg["invocations"] = old.get("invocations", [])
     else:
         cfg["invocations"] = []
-    cfg.update(stage=a.stage or old.get("stage", ""), n=a.n)
+    cfg.update(stage=a.stage or old.get("stage", ""), n=n_run)
     started = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
-    cfg["invocations"].append(dict(started=started, n=a.n, workers=a.workers, stage=a.stage, versions=versions))
+    cfg["invocations"].append(dict(started=started, n=n_run, workers=a.workers, stage=a.stage, versions=versions))
     with open(cfg_path, "w") as f:
         json.dump(cfg, f, indent=1)
 
@@ -970,6 +1020,9 @@ def main():
     for row in todo:
         if coords:
             reqs.append((row.shot_id, Req(image=None, prompt=prompt_tmpl.format(coords=coords_block(row), context=""))))
+            continue
+        if frame:
+            reqs.append((row.shot_id, Req(image=frame_b64(frames[row.shot_id]), prompt=prompt_tmpl.format(context=""))))
             continue
         ctx = f"Body part used: {row.body_part}.\n" if a.context else (features_block(row) if a.all_features else "")
         reqs.append((row.shot_id, Req(image=image_b64(row), prompt=prompt_tmpl.format(context=ctx), examples=examples)))
@@ -1052,7 +1105,8 @@ def main():
     mode = "zero-shot" if not a.shots else (f"few-shot k={a.shots} (example set {a.example_set}, seed "
                                             f"{ex_spec['seed']}, {EXAMPLE_FILES[a.example_set]})")
     ctx_name = "body part" if a.context else ("all pre-shot features + exact geometry" if a.all_features else
-                                              ("coordinates as text, no image" if coords else "image only"))
+                                              ("coordinates as text, no image" if coords else
+                                               f"broadcast frame ({a.view}), no drawing" if frame else "image only"))
     L.append(f"VLM: {a.backend}/{a.model}, {mode}, context={ctx_name}")
     if a.backend == "anthropic" and not a.thinking_level:
         think = ("not set: no thinking or effort parameter sent, as in the original Opus/Sonnet runs "
