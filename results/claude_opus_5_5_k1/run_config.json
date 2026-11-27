@@ -1,0 +1,38 @@
+{
+ "backend": "anthropic",
+ "model": "claude-opus-5-5",
+ "shots": 1,
+ "example_set": "A",
+ "example_ids": [
+  "6d498191-05f0-432c-8764-03aea4ef9fb8"
+ ],
+ "example_seed": 1,
+ "context": false,
+ "thinking_level": null,
+ "max_output_tokens": 600,
+ "seed": 7,
+ "comp": 43,
+ "season": 106,
+ "prompt_sha": "f92fad0bd68f",
+ "invocations": [
+  {
+   "started": "2026-11-27T07:17:39+00:00",
+   "n": 300,
+   "workers": 4,
+   "stage": "4: few-shot set A",
+   "versions": {
+    "anthropic": "2.14.0",
+    "google-genai": "3.6.1",
+    "openai": "3.60.0",
+    "matplotlib": "3.11.2",
+    "mplsoccer": "1.8.1",
+    "statsbombpy": "1.22.0"
+   },
+   "finished": "2026-11-27T07:21:11+00:00",
+   "status": "complete",
+   "elapsed_s": 211
+  }
+ ],
+ "stage": "4: few-shot set A",
+ "n": 300
+}
