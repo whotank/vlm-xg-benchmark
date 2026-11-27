@@ -1,0 +1,78 @@
+Data: StatsBomb open data, competition 43, season 106
+All non-penalty shots with freeze frames: 1430 (152 goals)
+VLM sample: 300 shots (42 goals), observed goal rate 0.140
+VLM: gemini/gemini-4-carbon, zero-shot, context=all pre-shot features + exact geometry
+Settings: thinking/reasoning level = medium; max output tokens = none; sampling = provider default
+Gemini: response_mime_type=application/json
+API usage, all invocations of this run: 300 calls, 0 failed, 0 accepted answers flagged incomplete; tokens: input 434972, cache writes 0, cached input 0, output 40209 (of which thinking 25207)
+Cost: $1.272 at 2.0/10.0 USD per 1M input/output tokens (third-party (layer3labs.io, aipricing.guru, braindetox.kr via web search; Google's pricing page unreachable here): $2/$10 to 2026-11-30, $4/$20 from 2026-12-01; cached input assumed at 5% of input, 2026-11-27)
+
+model              AUC    Brier  LogLoss   MeanXG
+vlm_xg           0.786   0.0988   0.3375    0.098
+sb_xg            0.793   0.0989   0.3378    0.100
+baseline_xg      0.768   0.1050   0.3494    0.108
+
+Brier(VLM) - Brier(StatsBomb) = -0.0000  (95% shot-level bootstrap CI -0.0043 to +0.0043)
+Brier(VLM) - Brier(baseline)  = -0.0062  (95% shot-level bootstrap CI -0.0119 to -0.0007)
+(match-clustered intervals for all runs: results/main_table.md, from compare_models.py)
+Spearman rho, VLM vs StatsBomb xG: 0.911
+Mean gap (VLM - StatsBomb): -0.002; mean absolute gap: 0.024
+
+Disagreement by body_part:
+              n  goals    vlm  statsbomb  mean_gap
+body_part                                         
+Head         63      7  0.113      0.098     0.015
+Left Foot    93     15  0.076      0.086    -0.010
+Other         3      0  0.377      0.379    -0.002
+Right Foot  141     20  0.100      0.104    -0.004
+
+Disagreement by play_pattern:
+                  n  goals    vlm  statsbomb  mean_gap
+play_pattern                                          
+From Corner      52      5  0.097      0.100    -0.003
+From Counter     10      3  0.236      0.235     0.000
+From Free Kick   58      7  0.069      0.060     0.009
+From Goal Kick   18      5  0.085      0.085    -0.001
+From Keeper       3      0  0.100      0.140    -0.040
+From Kick Off     2      0  0.042      0.034     0.008
+From Throw In    55      6  0.072      0.076    -0.003
+Regular Play    102     16  0.119      0.125    -0.006
+
+Disagreement by cone_bin:
+            n  goals    vlm  statsbomb  mean_gap
+cone_bin                                        
+0           8      5  0.486      0.489    -0.003
+1         137     26  0.124      0.133    -0.009
+2         104      8  0.062      0.056     0.006
+3+         51      3  0.040      0.040     0.000
+
+Disagreement by dist_bin:
+           n  goals    vlm  statsbomb  mean_gap
+dist_bin                                       
+<6         8      4  0.499      0.480     0.019
+6-12      77     14  0.168      0.168    -0.000
+12-18     81     18  0.097      0.101    -0.004
+18-25     69      4  0.043      0.049    -0.006
+25+       65      2  0.025      0.024     0.001
+
+Largest VLM over-estimates:
+                             shot_id  goal  sb_xg  vlm_xg   gap  body_part  distance  defenders_in_cone                                                                                                                                                                                                              vlm_reason
+96265fa7-2689-4ba5-bfe3-781c93b4ee60     1  0.235    0.38 0.145       Head     7.571                  1                                          An unpressured central header from close range in a one-on-one situation carries high scoring probability despite headers generally having lower conversion than footed shots.
+661531f6-17c2-4898-a780-a61b4cbf95a9     0  0.213    0.35 0.137       Head     7.918                  1                                                An unpressured, one-on-one header from just outside the six-yard box offers a very strong scoring opportunity despite headers being harder to convert than footed shots.
+752418ff-5b38-47af-8789-2bac6b37f2c0     0  0.096    0.21 0.114 Right Foot    10.640                  2                                 A central shot from 10.6 yards off a ground cut-back offers a strong scoring angle, though two defenders positioned directly in the shooting lane significantly reduce the probability.
+02c29470-d751-4a39-b438-d7f2d1de3f23     1  0.310    0.42 0.110  Left Foot     7.305                  1                                                    An unpressured, central close-range shot from a low cross with only the goalkeeper to beat offers a very high scoring chance despite being a first-time half volley.
+19a225eb-4436-4a53-a354-3b40dfa6ca31     1  0.711    0.81 0.099       Head     3.360                  0                                                                                                 An unpressured header into an open goal from just over three yards out offers an extremely high probability of scoring.
+d71bc1d5-1501-4fe6-9ae8-a490371ee93e     1  0.027    0.11 0.083 Right Foot    10.456                  1                                Despite being a close-range one-on-one without pressure, the extremely tight 11-degree angle near the byline with the goalkeeper covering the near post severely limits the target area.
+ac8b083c-950f-4978-8497-8f60b4b4fe6d     0  0.279    0.36 0.081 Right Foot     8.420                  1 An unpressured close-range shot from a counter-attacking low pass offers a high scoring chance, though the first-time half-volley technique and the nearby goalkeeper closing the angle slightly limit the probability.
+f04052f9-712a-4992-a561-b3a46bb0d53b     0  0.108    0.17 0.062       Head     8.429                  1                                                  A central unpressured header from 8.4 yards following a cross offers a solid chance, though headers have lower conversion rates and the goalkeeper is well-positioned.
+
+Largest VLM under-estimates:
+                             shot_id  goal  sb_xg  vlm_xg    gap  body_part  distance  defenders_in_cone                                                                                                                                                                                          vlm_reason
+4b8db9ec-fbb1-485b-b348-d8bb3aecbf07     1  0.779    0.52 -0.259 Right Foot     9.534                  0                                                             An unpressured, close-range central shot from a ground pass with zero outfield blockers and the goalkeeper pulled toward the near post.
+ed57db75-dfc9-4bf5-8f72-c85a80bb9829     0  0.455    0.22 -0.235  Left Foot     6.824                  1 Despite the close range of 6.8 yards, the difficulty of a first-time half-volley under pressure with a defender and the goalkeeper blocking the path significantly reduces the scoring probability.
+eb01f465-08f6-4adf-a1b8-865127b41a97     1  0.408    0.22 -0.188  Left Foot    12.860                  1                                              An unpressured, controlled left-footed shot from 12.9 yards at a good angle offers a strong scoring chance despite the goalkeeper narrowing the angle.
+c15dc8c4-2d91-435a-a390-11fd17a2bf2f     0  0.317    0.14 -0.177 Right Foot    18.420                  1                           Although assisted by a through ball onto the shooter's right foot inside the box, the goalkeeper has rushed out very close to smother the shooting angle from 18.4 yards.
+37c91977-3d8e-42a7-8368-806c40c8e9fc     1  0.509    0.34 -0.169  Left Foot     6.083                  1                                                      A close-range, unpressured left-footed rebound with a wide shooting angle, though the goalkeeper is positioned closely to block the near post.
+e823ad07-c3bc-4381-ba75-91912727a627     0  0.434    0.28 -0.154 Right Foot    10.977                  1                                                                          A central, unpressured first-time shot from 11 yards following a ground pass with no outfield defenders blocking the goal.
+abff7ac7-6180-4fa7-94b9-0c644380e9a9     0  0.214    0.09 -0.124  Left Foot    18.279                  1                             A controlled central shot from the edge of the box with a defender in the shooting lane and a well-positioned goalkeeper carries a moderate-to-low scoring probability.
+59597c3f-d84d-467b-a791-46d9ffd85032     0  0.391    0.28 -0.111       Head     6.042                  1                                                                        A close-range central diving header from the edge of the six-yard box has good scoring potential despite defensive pressure.

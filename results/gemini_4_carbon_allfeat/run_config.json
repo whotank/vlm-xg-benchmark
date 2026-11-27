@@ -1,0 +1,37 @@
+{
+ "backend": "gemini",
+ "model": "gemini-4-carbon",
+ "shots": 0,
+ "example_set": null,
+ "example_ids": [],
+ "example_seed": null,
+ "context": false,
+ "thinking_level": "medium",
+ "max_output_tokens": "none",
+ "seed": 7,
+ "comp": 43,
+ "season": 106,
+ "prompt_sha": "b40f124d940c",
+ "all_features": true,
+ "invocations": [
+  {
+   "started": "2026-11-27T14:36:52+00:00",
+   "n": 300,
+   "workers": 6,
+   "stage": "features: VLM + all pre-shot features",
+   "versions": {
+    "anthropic": "2.14.0",
+    "google-genai": "3.6.1",
+    "openai": "3.60.0",
+    "matplotlib": "3.11.2",
+    "mplsoccer": "1.8.1",
+    "statsbombpy": "1.22.0"
+   },
+   "finished": "2026-11-27T15:03:01+00:00",
+   "status": "complete",
+   "elapsed_s": 1569
+  }
+ ],
+ "stage": "features: VLM + all pre-shot features",
+ "n": 300
+}
