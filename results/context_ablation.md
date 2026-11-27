@@ -39,7 +39,7 @@ Overall AUC of the rerun: 0.717 [0.630, 0.800].
 
 ## Gemini 4 Carbon
 
-Runs: `gemini_4_carbon` (no context) vs `gemini_4_carbon_context` (body part given).
+Runs: `gemini_4_carbon` (no context) vs `gemini_4_carbon_context` (body part given); control rerun without context: `gemini_4_carbon_rerun`.
 
 ### Mean predicted xG by body part
 
@@ -60,4 +60,15 @@ Runs: `gemini_4_carbon` (no context) vs `gemini_4_carbon_context` (body part giv
 | All shots | 298 (42) | 0.105 [0.074, 0.141] | 0.104 [0.072, 0.141] | −0.002 [−0.006, +0.004] | 0.500 |
 
 Overall: AUC 0.743 [0.657, 0.819] without context vs 0.758 [0.672, 0.836] with; log loss 0.356 vs 0.352.
+
+### Control: the same no-context setting queried again
+
+| Shots | No context (original) | No context (rerun) | Δ mean xG | Δ Brier | p |
+|---|---|---|---|---|---|
+| Head | 0.185 | 0.181 | −0.004 [−0.009, +0.002] | −0.002 [−0.006, +0.001] | 0.145 |
+| Foot | 0.087 | 0.086 | −0.001 [−0.004, +0.001] | +0.002 [−0.001, +0.004] | 0.149 |
+| Other | 0.403 | 0.387 | −0.017 [−0.030, +0.000] | −0.012 [−0.032, +0.000] | 0.165 |
+| All shots | 0.111 | 0.109 | −0.002 [−0.004, −0.000] | +0.001 [−0.001, +0.003] | 0.485 |
+
+Overall AUC of the rerun: 0.738 [0.657, 0.817].
 

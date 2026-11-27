@@ -95,9 +95,10 @@ Key findings:
 - Errors concentrate at short range. At 6-12 yards (77 shots, 18% scored, StatsBomb 0.17): Sonnet 0.15,
   Neon 0.19, Carbon 0.20, Opus 0.22, Hydrogen 0.22, GPT-6.2 Astra 0.30, Gemini 3.8 Flash 0.32, Gemma 0.45.
   Beyond 18 yards frontier models match StatsBomb. Carbon tracks StatsBomb in every band.
-- Few-shot examples labelled with outcomes do not help: for Opus (sets A and B) and Carbon (set A), every
-  k = 1/5/10 run is within ±0.003 Brier of zero-shot (n.s.), the same size as a plain rerun of the
-  zero-shot setting (Opus rerun +0.002, p = 0.26). Carbon set B and the Carbon rerun: see `results/fewshot.md`.
+- Few-shot examples labelled with outcomes do not help: for Opus and Carbon, with example sets A and B, every
+  k = 1/5/10 run is within ±0.003 Brier of zero-shot (one Opus set B run reaches p = 0.03 in the wrong
+  direction), the same size as a plain rerun of the zero-shot setting (Opus +0.002, p = 0.26; Carbon +0.001,
+  p = 0.49). Run-to-run noise, not the examples, explains the differences.
 - Body part fixes the header level, not the score: header mean xG falls 0.211 -> 0.141 (Opus) and
   0.185 -> 0.117 (Carbon), toward the observed 0.111 and StatsBomb 0.098; foot shots do not move; overall
   Brier changes by -0.001 / -0.002 (n.s.; only 7 header goals). Carbon + body part: AUC 0.758, Brier 0.104.
@@ -107,7 +108,8 @@ Key findings:
   "very tight" angles. Inside 6 yards there are only 8 shots, so treat that band as suggestive.
 - The 12-18 yard band has an unusually high observed rate (23%); every model including StatsBomb is
   below it. That is sampling variation, not a VLM failure.
-- Cost (see `results/cost_summary.md`): a 300-shot zero-shot run costs $1.2-$4.0 on the API models; thinking
+- Cost (see `results/cost_summary.md`): the overnight runs cost $54.48 in total (Anthropic $17.44, Gemini
+  $35.25, OpenAI $1.79; 6,009 calls, none failed). A 300-shot zero-shot run costs $1.2-$4.0; thinking
   depth at the same "medium" setting differs a lot (thinking tokens per shot: Carbon ~107, Neon ~593,
   Hydrogen ~572, GPT-6.2 Astra ~25; Opus at its default ~160). Few-shot k=10 costs $2.2 on Opus (cached
   prefix) but $7.2 on Carbon (no explicit caching on Gemini 4).

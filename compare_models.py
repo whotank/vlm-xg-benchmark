@@ -380,8 +380,10 @@ def figure_forest(main_t, path):
     axes[0].invert_yaxis()
     axes[1].legend(frameon=False, loc="lower right", fontsize=8)
     fig.text(0.01, 0.005, "Dots: estimate; lines: 95% match-clustered bootstrap interval (2,000 resamples). "
-             "Vertical lines: StatsBomb xG (dashed) and the logistic baseline (dotted).", fontsize=7.5, color="#666666")
-    fig.tight_layout(rect=(0, 0.02, 1, 1))
+             "Vertical lines: StatsBomb xG (dashed) and the logistic baseline (dotted).\nThese marginal intervals "
+             "overlap because all runs share the same shots; paired differences (results/main_table.md, "
+             "fewshot.md, context_ablation.md) are much tighter.", fontsize=7.5, color="#666666")
+    fig.tight_layout(rect=(0, 0.035, 1, 1))
     fig.savefig(path, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved {path}")
