@@ -1,0 +1,8 @@
+Task: identify (probe: identify the match from the image)
+Model: openai/gpt-6.2-astra; thinking/reasoning level: medium; max output tokens: none
+Sample: results/probe_sample.json (84 shots); answered 84 of 84
+API usage: 84 calls, 0 failed; cost $0.6087
+
+Claimed to recognise the shot: 0 of 84
+Mean confidence: 0.01
+Best-guess competitions: FIFA World Cup (48); La Liga (15); UEFA Champions League (12); Premier League (6); English Premier League (3)

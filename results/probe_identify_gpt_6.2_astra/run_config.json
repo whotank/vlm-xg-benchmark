@@ -1,0 +1,33 @@
+{
+ "task": "identify",
+ "backend": "openai",
+ "model": "gpt-6.2-astra",
+ "thinking_level": "medium",
+ "max_output_tokens": "none",
+ "sample": "results/probe_sample.json",
+ "shots": 0,
+ "context": "probe: identify the match from the image",
+ "prompt_sha": "a492367d89cf",
+ "invocations": [
+  {
+   "started": "2026-11-27T22:17:29+00:00",
+   "n": 2,
+   "workers": 2,
+   "stage": "probe: contamination",
+   "finished": "2026-11-27T22:17:33+00:00",
+   "status": "complete",
+   "elapsed_s": 4
+  },
+  {
+   "started": "2026-11-27T22:26:07+00:00",
+   "n": 84,
+   "workers": 6,
+   "stage": "probe: contamination",
+   "finished": "2026-11-27T22:27:06+00:00",
+   "status": "complete",
+   "elapsed_s": 58
+  }
+ ],
+ "stage": "probe: contamination",
+ "n": 84
+}
