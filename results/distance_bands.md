@@ -1,0 +1,14 @@
+# Mean predicted xG by distance band
+
+Evaluation set: 298 shots every included run answered (42 goals, 63 matches; observed goal rate 0.141 [0.095, 0.193]).
+Brackets: 95% match-clustered bootstrap intervals for the band mean. The <6 yd band has only 8 shots; treat it as suggestive.
+
+| Model | <6 yd (n=8, 4 goals) | 6–12 yd (n=77, 14 goals) | 12–18 yd (n=79, 18 goals) | 18–25 yd (n=69, 4 goals) | 25+ yd (n=65, 2 goals) |
+|---|---|---|---|---|---|
+| Observed goal rate | 0.50 [0.14, 0.86] | 0.18 [0.09, 0.29] | 0.23 [0.11, 0.35] | 0.06 [0.01, 0.12] | 0.03 [0.00, 0.08] |
+| Gemma 4 (26B) | 0.57 [0.39, 0.73] | 0.45 [0.39, 0.50] | 0.37 [0.33, 0.40] | 0.37 [0.34, 0.39] | 0.30 [0.28, 0.33] |
+| Claude Sonnet 5.5 | 0.18 [0.09, 0.27] | 0.15 [0.13, 0.17] | 0.10 [0.09, 0.11] | 0.05 [0.04, 0.06] | 0.03 [0.03, 0.03] |
+| Claude Opus 5.5 | 0.35 [0.29, 0.39] | 0.22 [0.19, 0.25] | 0.10 [0.09, 0.11] | 0.04 [0.04, 0.04] | 0.03 [0.03, 0.03] |
+| Gemini 3.8 Flash | 0.58 [0.50, 0.65] | 0.32 [0.28, 0.36] | 0.17 [0.15, 0.19] | 0.07 [0.05, 0.08] | 0.03 [0.03, 0.04] |
+| StatsBomb xG | 0.48 [0.30, 0.65] | 0.17 [0.13, 0.21] | 0.10 [0.09, 0.12] | 0.05 [0.04, 0.06] | 0.02 [0.02, 0.03] |
+| Logistic baseline | 0.55 [0.38, 0.70] | 0.18 [0.16, 0.21] | 0.11 [0.10, 0.12] | 0.05 [0.05, 0.06] | 0.02 [0.02, 0.03] |
