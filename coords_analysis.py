@@ -101,18 +101,32 @@ def main():
         L.append(f"| {a} | {preds[a][head].mean():.3f} | {preds[b][head].mean():.3f} | "
                  f"{fs(preds[b][head].mean() - preds[a][head].mean(), *C.ci(d))} |")
 
-    # reading by the rule set in advance: does the 6-12 yd over-estimate shrink?
-    L += ["", "## Reading (rule fixed before the runs)", ""]
+    # reading by the rule set in advance: does the 6-12 yd over-estimate shrink? Plus a check that the change is
+    # specific to close range rather than a shift of the model's whole level (which would not mean better reading).
+    L += ["", "## Reading (rule fixed before the runs, plus a level-shift check)", ""]
     for r in [r for r in rows if r["band"] == "6–12"]:
-        shrinks = r["change_hi"] < 0
-        grows = r["change_lo"] > 0
-        verdict = ("shrinks significantly: reading the picture was part of the problem" if shrinks else
-                   "grows significantly with coordinates" if grows else
-                   "does not change significantly: the close-range error is in the judgment, not in reading the image")
-        L.append(f"- {r['model']}: at 6–12 yd the gap to StatsBomb goes from {r['mean_image'] - r['statsbomb']:+.3f} "
-                 f"(image) to {r['mean_coords'] - r['statsbomb']:+.3f} (coordinates); change "
-                 f"{r['change']:+.3f} [{r['change_lo']:+.3f}, {r['change_hi']:+.3f}], so the over-estimate {verdict}."
-                 .replace("+-", "−"))
+        a, b = [p for p in pairs if p[0] == r["model"]][0]
+        d_all = boot(C.mean_xg, preds[b]) - boot(C.mean_xg, preds[a])
+        lo_all, hi_all = C.ci(d_all)
+        shift = preds[b].mean() - preds[a].mean()
+        d_brier = boot(C.brier, preds[b]) - boot(C.brier, preds[a])
+        shrinks, grows = r["change_hi"] < 0, r["change_lo"] > 0
+        level_shift = hi_all < 0 or lo_all > 0
+        verdict = ("shrinks significantly" if shrinks else "grows significantly" if grows else
+                   "does not change significantly: by the rule, the close-range error is in the judgment, not in "
+                   "reading the image")
+        line = (f"- {r['model']}: at 6–12 yd the gap to StatsBomb goes from {r['mean_image'] - r['statsbomb']:+.3f} "
+                f"(image) to {r['mean_coords'] - r['statsbomb']:+.3f} (coordinates); change {r['change']:+.3f} "
+                f"[{r['change_lo']:+.3f}, {r['change_hi']:+.3f}], so the over-estimate {verdict}.")
+        if shrinks and level_shift:
+            line += (f" But the change is not specific to close range: the model's mean xG over all shots moves by "
+                     f"{shift:+.3f} [{lo_all:+.3f}, {hi_all:+.3f}] and overall Brier by "
+                     f"{C.brier(y, preds[b]) - C.brier(y, preds[a]):+.4f} [{C.ci(d_brier)[0]:+.4f}, "
+                     f"{C.ci(d_brier)[1]:+.4f}]. Coordinates lower the model's level across bands rather than fixing "
+                     "its reading of close-range shots, so this is weak evidence that the picture was the problem.")
+        elif shrinks:
+            line += " The overall level does not move, so the change is specific to close range: reading the picture was part of the problem."
+        L.append(line.replace("+-", "−").replace("[-", "[−").replace(" -0", " −0"))
     L += ["", "Caveat: with coordinates the model still has to turn raw positions into distance, angle and blockers; "
           "the `--all-features` runs (results/features_ablation.md), which state those quantities directly, separate "
           "that geometric step from the judgment itself."]

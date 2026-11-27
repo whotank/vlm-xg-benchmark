@@ -49,11 +49,14 @@ from an image of a shot situation alone, and where they diverge from established
 - `results/main_table.{md,csv}`, `paired_differences.csv`, `distance_bands.{md,csv}`, `recalibration.{md,csv}`,
   `fewshot.{md,csv}`, `context_ablation.{md,csv}`, `features_ablation.{md,csv}`, `coords_vs_image.{md,csv}`,
   `error_analysis.md` (+ `error_analysis_shots.csv`, `figure_error_gallery.png`), `baselines.{md,csv}`,
+  `baseline_coefficients.md` (the baseline's coefficients and odds ratios per fold and on all shots),
   `cost_summary.md`, `cost_log.csv`.
 - `results/fewshot_examples.json` (set A, seed 1), `results/fewshot_examples_setB.json` (set B, seed 2).
-- `results/figure1.png`: Figure 1 of the abstract (unchanged). `results/figure_frontier.png`,
-  `results/figure_forest.png`: full-paper figures.
-- `docs/`: abstract, literature review, collaboration brief, `colab_gemma_fewshot.md` (Gemma few-shot runs).
+- `results/figure1.png`: Figure 1 of the abstract (unchanged). Full-paper figures: `figure_frontier.png`,
+  `figure_forest.png` (AUC and Brier with CIs; Reference group with StatsBomb and the logistic baselines on top),
+  `figure_paired.png` (paired ΔBrier vs StatsBomb and vs the baseline for every row), `figure_error_gallery.png`.
+- `docs/`: abstract, literature review, collaboration brief, `colab_gemma_fewshot.md` (Gemma few-shot runs),
+  `paper_notes.md` (data-section draft and discussion points; numbers checked against the data).
 
 ## How to run
 ```
@@ -79,18 +82,20 @@ Folder names: `<model>` + `_context` / `_allfeat` / `_coords` + `_k{n}` (+ `_set
 
 ## Results (298 common shots; 95% match-clustered bootstrap CIs; full tables in `results/*.md`)
 Zero-shot, image only:
-| Model | AUC | Brier | Mean xG | ΔBrier vs StatsBomb [95% CI] | ΔBrier vs baseline [95% CI] |
-|---|---|---|---|---|---|
-| Gemma 4 (26B) | 0.597 | 0.190 | 0.379 | +0.091 [+0.062, +0.118] | +0.084 [+0.057, +0.111] |
-| Claude Sonnet 5.5 | 0.683 | 0.121 | 0.085 | +0.022 [+0.010, +0.034] | +0.015 [+0.005, +0.028] |
-| Claude Opus 5.5 | 0.721 | 0.111 | 0.109 | +0.012 [+0.001, +0.022] | +0.005 [-0.005, +0.016] |
-| Gemini 3.8 Flash | 0.721 | 0.116 | 0.167 | +0.016 [+0.003, +0.028] | +0.010 [-0.002, +0.021] |
-| Gemini 4 Carbon | 0.743 | 0.105 | 0.111 | +0.006 [-0.002, +0.012] | -0.001 [-0.009, +0.006] |
-| Gemini 4 Neon | 0.719 | 0.108 | 0.101 | +0.009 [-0.000, +0.019] | +0.003 [-0.007, +0.012] |
-| Gemini 4 Hydrogen | 0.721 | 0.111 | 0.113 | +0.012 [+0.002, +0.021] | +0.005 [-0.004, +0.014] |
-| GPT-6.2 Astra | 0.733 | 0.108 | 0.148 | +0.009 [-0.002, +0.018] | +0.002 [-0.009, +0.012] |
-| Logistic baseline | 0.768 | 0.106 | 0.108 | +0.006 [+0.001, +0.012] | |
-| StatsBomb xG | 0.792 | 0.100 | 0.100 | | |
+| Model | AUC | Brier | Mean xG | ΔBrier vs StatsBomb [95% CI] | ΔBrier vs baseline [95% CI] | ΔBrier vs map-only [95% CI] |
+|---|---|---|---|---|---|---|
+| Gemma 4 (26B) | 0.597 | 0.190 | 0.379 | +0.091 [+0.062, +0.118] | +0.084 [+0.057, +0.111] | +0.080 [+0.052, +0.106] |
+| Claude Sonnet 5.5 | 0.683 | 0.121 | 0.085 | +0.022 [+0.010, +0.034] | +0.015 [+0.005, +0.028] | +0.011 [+0.002, +0.021] |
+| Claude Opus 5.5 | 0.721 | 0.111 | 0.109 | +0.012 [+0.001, +0.022] | +0.005 [-0.005, +0.016] | +0.001 [-0.006, +0.008] |
+| Gemini 3.8 Flash | 0.721 | 0.116 | 0.167 | +0.016 [+0.003, +0.028] | +0.010 [-0.002, +0.021] | +0.005 [-0.006, +0.016] |
+| Gemini 4 Carbon | 0.743 | 0.105 | 0.111 | +0.006 [-0.002, +0.012] | -0.001 [-0.009, +0.006] | -0.005 [-0.010, -0.001] |
+| Gemini 4 Neon | 0.719 | 0.108 | 0.101 | +0.009 [-0.000, +0.019] | +0.003 [-0.007, +0.012] | -0.002 [-0.008, +0.005] |
+| Gemini 4 Hydrogen | 0.721 | 0.111 | 0.113 | +0.012 [+0.002, +0.021] | +0.005 [-0.004, +0.014] | +0.001 [-0.005, +0.006] |
+| GPT-6.2 Astra | 0.733 | 0.108 | 0.148 | +0.009 [-0.002, +0.018] | +0.002 [-0.009, +0.012] | -0.002 [-0.011, +0.006] |
+| Map-only baseline | 0.721 | 0.110 | 0.111 | +0.011 [+0.003, +0.018] | +0.005 [-0.001, +0.009] | |
+| Logistic baseline | 0.768 | 0.106 | 0.108 | +0.006 [+0.001, +0.012] | | -0.005 [-0.009, +0.001] |
+| Logistic, all pre-shot features | 0.815 | 0.098 | 0.112 | -0.001 [-0.008, +0.004] | -0.007 [-0.015, -0.001] | -0.012 [-0.021, -0.004] |
+| StatsBomb xG | 0.792 | 0.100 | 0.100 | | -0.006 [-0.012, -0.001] | -0.011 [-0.018, -0.003] |
 
 The abstract (Oct 2026) used a shot-level bootstrap; `results/main_table.md` keeps both for comparison.
 
@@ -103,6 +108,29 @@ Key findings:
 - Carbon was picked as "best Gemini 4" on the same 298 shots. Paired, it beats Opus 5.5 (ΔBrier -0.006
   [-0.012, -0.001], p = 0.02) and Hydrogen (-0.006, p = 0.006), but not Neon (-0.003, p = 0.14) or
   GPT-6.2 Astra (-0.003, p = 0.37); treat the top three as one tier.
+- Against the fair comparator, the map-only baseline (exact geometry from the image, no header flag), the
+  frontier VLMs tie or win: Opus +0.001, Hydrogen +0.001, Neon -0.002, GPT-6.2 Astra -0.002 (all n.s.), and
+  Carbon -0.005 [-0.010, -0.001] (p = 0.013), from pixels alone. Most of the gap to the 4-feature baseline and
+  StatsBomb is information the image does not contain: the header flag alone is worth -0.005 Brier to the
+  logistic model, and the map-only baseline over-rates headers (0.201 vs StatsBomb 0.098) just like the VLMs.
+- Given every pre-shot attribute and the exact geometry as text (`_allfeat`), Gemini 4 Carbon (Brier 0.099,
+  AUC 0.785) and GPT-6.2 Astra (0.099, 0.781) tie StatsBomb (-0.000 / -0.001) and a logistic model on the
+  same attributes (+0.001 / +0.001); Opus reaches 0.104 (0.758). The extra information helps every model
+  (Carbon -0.006, GPT -0.009, Opus -0.007 n.s., logistic -0.012), but VLM judgment is not better than a
+  statistical model with the same inputs. With the numbers in hand the models barely reason (thinking tokens
+  per shot: Opus ~16 vs ~160 image-only; GPT ~1).
+- Coordinates as text instead of the image (`_coords`; perception vs judgment): Carbon is unchanged (overall
+  ΔBrier +0.000; 6-12 yd over-estimate +0.030 -> +0.020, n.s.; headers 0.185 -> 0.179), so its close-range
+  error is judgment or missing information, not reading the picture. Opus's 6-12 yd over-estimate disappears
+  (+0.053 -> -0.014), but its whole level drops (mean 0.109 -> 0.082, 12-18 yd now 0.032 below StatsBomb,
+  headers 0.211 -> 0.142 although neither input has the body part) with unchanged Brier (+0.000) and AUC
+  (0.721 both): a level shift, not better reading. `results/coords_vs_image.md`.
+- Error analysis (`results/error_analysis.md`): 54% of the frontier models' Brier gap to StatsBomb accrues at
+  6-12 yd and 36% on headers (gap +0.117); the largest consensus over-estimates are all headers from 7-13 yd,
+  the largest under-estimates close-range foot shots that went in, usually with the keeper out of position
+  (models say so in their rationale and still rate them 0.08-0.24 below StatsBomb). Shots with no opponent in
+  the cone (8 shots, 5 goals) are rated 0.32 vs StatsBomb 0.49. Errors are shared: the five models' gaps
+  correlate at a median of 0.82, so the hard shots are hard for every model.
 - With match clustering, Gemini 3.8 Flash vs the baseline is no longer significant (abstract: +0.010
   [+0.001, +0.020] shot-level; now [-0.002, +0.021]).
 - Ranking (AUC) and level diverge: among models with AUC 0.72-0.74, mean predicted xG ranges from 0.101 (Neon)
@@ -124,8 +152,9 @@ Key findings:
   "very tight" angles. Inside 6 yards there are only 8 shots, so treat that band as suggestive.
 - The 12-18 yard band has an unusually high observed rate (23%); every model including StatsBomb is
   below it. That is sampling variation, not a VLM failure.
-- Cost (see `results/cost_summary.md`): the overnight runs cost $54.48 in total (Anthropic $17.44, Gemini
-  $35.25, OpenAI $1.79; 6,009 calls, none failed). A 300-shot zero-shot run costs $1.2-$4.0; thinking
+- Cost (see `results/cost_summary.md`): all runs since Nov 27 cost $62.89 in total (Anthropic $20.94, Gemini
+  $38.24, OpenAI $3.71; 7,509 calls, none failed); the overnight session was $54.48 of it, the all-features
+  and coordinates runs $8.41. A 300-shot zero-shot run costs $1.2-$4.0; thinking
   depth at the same "medium" setting differs a lot (thinking tokens per shot: Carbon ~107, Neon ~593,
   Hydrogen ~572, GPT-6.2 Astra ~25; Opus at its default ~160). Few-shot k=10 costs $2.2 on Opus (cached
   prefix) but $7.2 on Carbon (no explicit caching on Gemini 4).

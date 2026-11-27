@@ -111,11 +111,12 @@ python cost_summary.py
   with token usage), and for newer runs `calls.jsonl` (every API call) and `run_config.json` (settings)
 - `results/main_table.md`, `distance_bands.md`, `recalibration.md`, `fewshot.md`, `context_ablation.md`,
   `features_ablation.md`, `coords_vs_image.md`, `error_analysis.md`, `baselines.md`, `cost_summary.md` (and
-  matching CSVs); `results/cost_log.csv` (one row per run); `results/figure_error_gallery.png`
+  matching CSVs); `results/cost_log.csv` (one row per run); `results/baseline_coefficients.md`
+- `results/figure_frontier.png`, `figure_forest.png`, `figure_paired.png`, `figure_error_gallery.png`: full-paper figures
 - `results/fewshot_examples.json`, `results/fewshot_examples_setB.json`: example sets (shot ids, labels, seed)
 - `results/baseline_folds.json`: frozen match-to-fold assignment of the logistic baseline
 - `results/figure1.png`: Figure 1 of the abstract; `results/calibration_all_models.png`: reliability curves
-- `docs/`: abstract, literature review, collaboration brief, Colab guide for Gemma few-shot runs
+- `docs/`: abstract, literature review, collaboration brief, Colab guide for Gemma few-shot runs, paper notes
 
 ## Authors
 - Houman Kamran Habibkhani, University of the Pacific
