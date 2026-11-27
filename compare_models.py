@@ -40,7 +40,7 @@ EXTRA_REFS = {"Map-only baseline": "baseline_image_xg", "Logistic, all pre-shot 
 # paired ΔBrier / ΔAUC / Δlog-loss of every row against each of these (tag used in main_table.csv columns)
 PAIRED_REFS = [("StatsBomb xG", "sb"), ("Logistic baseline", "base"), ("Map-only baseline", "map")]
 GROUP_ORDER = ["zero-shot", "few-shot set A", "few-shot set B", "context", "all features", "coordinates",
-               "rerun", "reference"]
+               "measure first", "rerun", "reference"]
 
 # ---------------------------------------------------------------- run registry
 # (label, folder, group). Folders without shots.csv yet (or never run) are skipped automatically.
@@ -65,6 +65,8 @@ def registry():
         runs.append((f"{lab} + all pre-shot features", f"{fol}_allfeat", "all features"))
     for lab, fol in BASE:
         runs.append((f"{lab}, coordinates as text", f"{fol}_coords", "coordinates"))
+    for lab, fol in BASE:   # one request: read distance, angle and opponents off the image, then give the xG
+        runs.append((f"{lab}, measure first", f"{fol}_measure", "measure first"))
     for set_ in ["", "_setB"]:
         for lab, fol in BASE:
             for k in (1, 5, 10):
@@ -424,7 +426,7 @@ def figure(base, preds, labels, path, colors=None, markers=None):
 GROUP_NAMES = {"reference": "Reference", "zero-shot": "Zero-shot", "few-shot set A": "Few-shot, example set A",
                "few-shot set B": "Few-shot, example set B", "context": "Body part given",
                "all features": "Image + all pre-shot features", "coordinates": "Coordinates as text (no image)",
-               "rerun": "Zero-shot, queried again"}
+               "measure first": "Measure first, then estimate", "rerun": "Zero-shot, queried again"}
 REF_ORDER = ["StatsBomb xG", "Logistic baseline", "Map-only baseline", "Logistic, all pre-shot features"]
 REF_INK, RUN_INK = "#191919", "#257de0"   # statistical references in near-black, VLM runs in blue
 

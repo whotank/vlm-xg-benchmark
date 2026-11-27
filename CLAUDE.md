@@ -183,13 +183,13 @@ Key findings:
   - Told the match, the minute and the shooter as text, Opus, Carbon and GPT label every shot correctly: sensitivity
     and specificity 100%, AUC 1.000 vs StatsBomb 0.790. They claim to remember every goal but only 10–57% of the
     misses; they infer the misses from knowing each match's goals.
-  - From the rendered maps, identification is rare. P-values are exact permutation p-values (rook polynomial of
-    the guess × shot hit matrix).
+  - From the rendered maps, identification is rare. P-values are permutation p-values, exact from the rook
+    polynomial of the guess × shot hit matrix (Monte Carlo, 200,000 permutations, only for "a correct team").
     - Opus never guesses.
     - GPT's best guesses are at chance on every criterion (p ≥ 0.2).
     - Carbon's 3 claimed recognitions are all wrong: two famous club goals (Agüero vs QPR 2012, Xabi Alonso in
-      the 2005 Champions League final) and Kolo Muani in the 2022 World Cup final, each attributed to a different
-      shot.
+      the 2005 Champions League final) and Kolo Muani in the 2022 World Cup final. Each was guessed for a shot that
+      was something else (Taremi, Enner Valencia, João Félix).
     - Carbon's best guesses are above chance, though. It names the shooter in 4 of 84 shots (chance 1%,
       p = 0.002), all goals: Messi twice, Giroud, Asano. It names both teams in 2 (p = 0.024) and the shooting
       team in 4 (p = 0.038). Confidence is at most 0.15 and it never claims to recognise them.
@@ -444,6 +444,17 @@ Recorded so the paper's methods section and later runs stay consistent.
     query moves them toward StatsBomb. Frames are therefore compared with a fresh drawing query of the same 30 shots
     (`--shot-list docs/frame_capture_list.csv --tag framelist`), or else read on the 18 random shots only.
     `frames_analysis.py` reports all shots, the random shots and the gallery shots separately.
+
+### Measure first, then estimate (added after the review of Nov 27)
+- `--measure-first` makes one request from the zero-shot image, legend lines and estimate lines.
+  - The perception task's measuring instructions are inserted before the estimate request: the scale from the pitch
+    markings, then distance, angle and opponents in the triangle. The estimate line starts with "Then".
+  - The JSON asks for `distance`, `angle`, `opponents_in_triangle`, `xg`, `reason`. The xG is parsed exactly as in
+    every other run; the readings are stored with it (`read_*` columns in `shots.csv`).
+- Run: GPT-6.2 Astra (reasoning medium, no output cap), 300 shots, folder `gpt_6.2_astra_measure`.
+  `compare_models.py` lists it in the group "measure first".
+- Analysis: `results/hybrid.md`. It compares the measure-first xG with the zero-shot run, the hybrid built from the
+  same request's readings and the map-only baseline, and reports 6-12 yd by body part and thinking tokens.
 
 ### Caveats for the methods and discussion (added after the review of Nov 27)
 - Multiple comparisons: the main table alone has 96 paired ΔBrier tests (32 runs x StatsBomb, the baseline and the

@@ -73,6 +73,18 @@ FRAME_LINES = ("The image is a frame from the television broadcast of a professi
                "taken (the player striking the ball is the shooter).\n")
 PROMPT_FRAME = PROMPT.replace(IMAGE_LINES, FRAME_LINES)
 FRAME_EXT = (".png", ".jpg", ".jpeg")
+# --measure-first: one request that first reads the geometry off the image (the perception task's wording and scale,
+# probe_runs.py) and then gives the xG; the image, the legend lines and the estimate lines are the zero-shot prompt's.
+MEASURE_LINES = ("First measure the shot's geometry from the image. For scale: the pitch is 80 yards wide, the penalty "
+                 "area is 18 yards deep and 44 yards wide, the six-yard box is 6 yards deep and 20 yards wide, the "
+                 "penalty spot is 12 yards from the goal line, and the goal is 8 yards wide. Measure the distance from "
+                 "the shooter to the centre of the goal (yards), the angle at the shooter between the lines to the two "
+                 "goalposts (degrees), and the number of opponents (red circles and the orange square) inside the "
+                 "triangle formed by the shooter and the two goalposts.\n")
+assert "{context}Estimate the probability" in PROMPT and '{{"xg":' in PROMPT
+PROMPT_MEASURE = (PROMPT.replace("{context}Estimate the probability", MEASURE_LINES + "Then estimate the probability")
+                  .replace('{{"xg":', '{{"distance": <number>, "angle": <number>, "opponents_in_triangle": <integer>, '
+                                      '"xg":'))
 
 # ---------------------------------------------------------------- prices (USD per 1M tokens)
 # Thinking / reasoning tokens are billed as output tokens by all three providers.
@@ -594,6 +606,25 @@ def parse(txt):
     return float(np.clip(xg, 0.001, 0.999)), (r.group(1) if r else "")
 
 
+def parse_measure(txt):
+    """--measure-first answers: the xG with the same parser as every other run, plus the three readings when they
+    parse (an answer with an xG but no readings is kept, with the readings missing)."""
+    xg, why = parse(txt)
+    if np.isnan(xg):
+        return None
+    d = {}
+    i = (txt or "").find("{")
+    if i != -1:
+        try:
+            d, _ = json.JSONDecoder().raw_decode(txt[i:])
+        except json.JSONDecodeError:
+            d = {}
+    num = lambda k: (float(d[k]) if isinstance(d, dict) and isinstance(d.get(k), (int, float))
+                     and not isinstance(d.get(k), bool) else None)
+    return dict(vlm_xg=xg, reason=why, read_distance=num("distance"), read_angle_deg=num("angle"),
+                read_opponents=num("opponents_in_triangle"))
+
+
 # ---------------------------------------------------------------- Gemini explicit context cache
 def gemini_create_cache(model, examples, ttl_s):
     """Returns (cache name or None, token count, note). Gemini 4 models do not offer explicit caching (404)."""
@@ -697,7 +728,8 @@ def cost_row(run, cfg, out_dir, status, notes=""):
         example_set=cfg.get("example_set") if cfg.get("shots") else "",
         context="all pre-shot features" if cfg.get("all_features") else (
             "coordinates as text (no image)" if cfg.get("input") == "coords" else
-            f"broadcast frame ({cfg.get('view')})" if cfg.get("input") == "frame" else cfg.get("context", False)),
+            f"broadcast frame ({cfg.get('view')})" if cfg.get("input") == "frame" else
+            "measure first, then xG (image)" if cfg.get("measure_first") else cfg.get("context", False)),
         max_output_tokens=cfg.get("max_output_tokens"), shots_queried=len({c["shot_id"] for c in api}),
         shots_answered=len(answers), calls=len(api), failed_calls=sum(not c.get("ok") for c in api),
         incomplete_flagged=sum(bool(a.get("incomplete")) for a in answers),
@@ -886,6 +918,9 @@ def main():
     ap.add_argument("--input", choices=["image", "coords", "frame"], default="image",
                     help="coords: no image; the freeze frame is given as (x, y) coordinates in text instead. "
                          "frame: a captured broadcast frame of the shot (only shots with a frame are queried)")
+    ap.add_argument("--measure-first", action="store_true",
+                    help="one request: read distance, angle and opponents in the triangle off the image, then give "
+                         "the xG (zero-shot image prompt otherwise unchanged)")
     ap.add_argument("--shot-list", help="query exactly the shots in this CSV (column shot_id) instead of the random "
                                         "sample, e.g. docs/frame_capture_list.csv for a fresh drawing query of the "
                                         "frame-pilot shots; needs --tag")
@@ -916,13 +951,17 @@ def main():
     coords, frame = a.input == "coords", a.input == "frame"
     if (coords or frame) and (a.shots or a.context or a.all_features):
         sys.exit(f"--input {a.input} is zero-shot with that input only (no --shots, --context or --all-features)")
+    if a.measure_first and (coords or frame or a.shots or a.context or a.all_features):
+        sys.exit("--measure-first is zero-shot with the image only (no --input coords/frame, --shots, --context or "
+                 "--all-features)")
     if frame and not re.fullmatch(r"[A-Za-z0-9]+", a.view):
         sys.exit("--view must be letters and digits only (it is part of the file and folder names)")
     if a.shot_list and (frame or not a.tag):
         sys.exit("--shot-list needs --tag (it writes a new folder, e.g. --tag framelist) and cannot be combined with "
                  "--input frame (frames define their own shots)")
     slug = re.sub(r"[^A-Za-z0-9.]+", "_", a.model) + ("_context" if a.context else "") + \
-        ("_allfeat" if a.all_features else "") + ("_coords" if coords else "") + (f"_frames_{a.view}" if frame else "")
+        ("_allfeat" if a.all_features else "") + ("_coords" if coords else "") + (f"_frames_{a.view}" if frame else "") + \
+        ("_measure" if a.measure_first else "")
     if a.shots:
         slug += f"_k{a.shots}" + ("" if a.example_set == "A" else f"_set{a.example_set}")
     if a.tag:
@@ -975,6 +1014,8 @@ def main():
         prompt_tmpl = PROMPT_COORDS
     if frame:
         prompt_tmpl = PROMPT_FRAME
+    if a.measure_first:
+        prompt_tmpl = PROMPT_MEASURE
 
     import importlib.metadata as md
     versions = {}
@@ -995,6 +1036,8 @@ def main():
         cfg["input"] = "coords"
     if frame:
         cfg.update(input="frame", view=a.view)
+    if a.measure_first:
+        cfg["measure_first"] = True
     if listed:
         cfg["shot_list"] = dict(file=os.path.basename(a.shot_list),
                                 sha=hashlib.sha1(",".join(sorted(listed)).encode()).hexdigest()[:12])
@@ -1057,15 +1100,16 @@ def main():
             st.log_call(dict(kind="cache_create", shot_id="", ok=True,
                              usage=usage_dict(cache_tokens), cost_usd=call_cost(usage_dict(cache_tokens), price)))
 
+    parser = parse_measure if a.measure_first else None   # None = the xG parser used by every other run
     t_start = time.time()
     try:
         if reqs and examples and a.backend in ("anthropic", "openai", "gemini"):
             # first call alone, so the example prefix is in the provider's cache before the parallel calls
             sid, req = reqs.pop(0)
-            query_shot(a.backend, a.model, opt, req, sid, st, cache, a.max_attempts)
+            query_shot(a.backend, a.model, opt, req, sid, st, cache, a.max_attempts, parser)
             st.shot_done()
         with cf.ThreadPoolExecutor(max_workers=max(1, a.workers)) as ex:
-            futs = [ex.submit(query_shot, a.backend, a.model, opt, req, sid, st, cache, a.max_attempts)
+            futs = [ex.submit(query_shot, a.backend, a.model, opt, req, sid, st, cache, a.max_attempts, parser)
                     for sid, req in reqs]
             for i, fu in enumerate(cf.as_completed(futs), 1):
                 if fu.cancelled():
@@ -1109,6 +1153,9 @@ def main():
     # ---- assemble answers
     sample["vlm_xg"] = [cache[s]["vlm_xg"] if s in cache else np.nan for s in sample.shot_id]
     sample["vlm_reason"] = [cache[s]["reason"] if s in cache else "" for s in sample.shot_id]
+    if a.measure_first:   # the readings that came with each xG
+        for k in ("read_distance", "read_angle_deg", "read_opponents"):
+            sample[k] = [cache[s].get(k) if s in cache else None for s in sample.shot_id]
     sample = sample.dropna(subset=["vlm_xg"])
     sample["gap"] = sample.vlm_xg - sample.sb_xg
     answers = [cache[s] for s in sample.shot_id]
@@ -1124,7 +1171,8 @@ def main():
                                             f"{ex_spec['seed']}, {EXAMPLE_FILES[a.example_set]})")
     ctx_name = "body part" if a.context else ("all pre-shot features + exact geometry" if a.all_features else
                                               ("coordinates as text, no image" if coords else
-                                               f"broadcast frame ({a.view}), no drawing" if frame else "image only"))
+                                               f"broadcast frame ({a.view}), no drawing" if frame else
+                                               "image, measure first then xG" if a.measure_first else "image only"))
     L.append(f"VLM: {a.backend}/{a.model}, {mode}, context={ctx_name}")
     if a.backend == "anthropic" and not a.thinking_level:
         think = ("not set: no thinking or effort parameter sent, as in the original Opus/Sonnet runs "

@@ -22,7 +22,8 @@ example sets), body-part context, all pre-shot event attributes, the freeze fram
 instead of an image (perception vs judgment), post-hoc recalibration (Platt and isotonic, side analysis),
 and an error analysis of the shots the models get wrong.
 Side studies: a hybrid design (the models read distance, angle and blockers off the image; the map-only logistic
-model scores the readings), contamination probes (can a model tell the match from the image; does it remember the
+model scores the readings), a measure-then-estimate prompt (read the geometry, then give the xG, in one request),
+contamination probes (can a model tell the match from the image; does it remember the
 outcome when told the match, minute and shooter), and a broadcast-frame pilot (hand-captured television frames
 of 30 of the same shots; capture guide in `docs/frame_capture.md`).
 Comparisons: StatsBomb xG, a logistic baseline (distance, angle, header, defenders in shooting cone), a
@@ -75,6 +76,9 @@ Side studies: perception readings for the hybrid design, the two contamination p
 (frames are captured by hand first, see `docs/frame_capture.md`; `make_frame_list.py` writes the shot list):
 ```bash
 python probe_runs.py --task perception --backend anthropic --model claude-opus-5-5 --workers 4
+```
+```bash
+python xg_vlm_pilot.py --backend openai --model gpt-6.2-astra --thinking-level medium --measure-first --n 300
 ```
 ```bash
 python probe_runs.py --task identify --backend anthropic --model claude-opus-5-5 --workers 4

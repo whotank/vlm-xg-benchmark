@@ -274,7 +274,86 @@ def main():
               "| Image | Distance MAE (yd) | median AE | max AE | bias | Angle MAE (°) | Opponents exact |",
               "|---|---|---|---|---|---|---|"] + rows
 
+    # measure first, then estimate: one request that reads the geometry and then gives the xG
+    measure = {}
+    for lab, mlab, mfol in MEASURE:
+        sp = os.path.join(C.RES, mfol, "shots.csv")
+        if mlab not in preds or lab not in preds or not os.path.exists(sp):
+            continue
+        sh = pd.read_csv(sp).set_index("shot_id")
+        ok = sh[["read_distance", "read_angle_deg", "read_opponents"]].notna().all(axis=1)
+        mask = np.array([s in sh.index and bool(ok.get(s, False)) for s in common])
+        ids = [s for s, m in zip(common, mask) if m]
+        r, tt = sh.loc[ids], truth.loc[ids]
+        y = base.goal.values[mask].astype(int)
+        idx = C.cluster_bootstrap(base.match_id.values[mask])
+        rd, ra, rn = r.read_distance.values, np.radians(r.read_angle_deg.values), r.read_opponents.values
+        q = {"Zero-shot xG (same model)": preds[lab][mask],
+             "Measure first, then xG": preds[mlab][mask],
+             "Hybrid on the readings of the same request": score(models, fold_of, ids, rd, ra, rn),
+             MAPK: preds["Map-only baseline"][mask], "StatsBomb xG": preds["StatsBomb xG"][mask]}
+        ZS, MF = "Zero-shot xG (same model)", "Measure first, then xG"
+        bb = {k: np.array([C.brier(y[ix], v[ix]) for ix in idx]) for k, v in q.items()}
+        ba = {k: np.array([C.auc(y[ix], v[ix]) for ix in idx]) for k, v in q.items()}
+        de, ae, ne = rd - tt.distance.values, np.degrees(ra - tt.angle.values), rn - tt.defenders_in_cone.values
+        sep, sep_txt = R.get(lab), ""
+        if sep is not None:   # the separate measuring request (perception run) on the same shots
+            both = [s for s in ids if s in sep.index]
+            rs, ts = sep.loc[both], truth.loc[both]
+            sep_txt = (f" (separate measuring request on the same {len(both)} shots: "
+                       f"{np.abs(rs.read_distance.values - ts.distance.values).mean():.2f} yd, "
+                       f"{np.abs(rs.read_angle_deg.values - np.degrees(ts.angle.values)).mean():.1f}°, "
+                       f"{np.mean(rs.read_opponents.values == ts.defenders_in_cone.values):.0%})")
+        L += ["", f"## Measure first, then estimate: {lab} ({len(ids)} shots, {y.sum()} goals)", "",
+              "One request: the zero-shot image and prompt, with the measuring instructions of the perception task "
+              "inserted before the estimate request and the three readings added to the JSON "
+              "(`xg_vlm_pilot.py --measure-first`, folder `" + mfol + "`).", "",
+              f"Readings in this request: distance MAE {np.abs(de).mean():.2f} yd, angle MAE {np.abs(ae).mean():.1f}°, "
+              f"opponents exact {np.mean(ne == 0):.0%}{sep_txt}.", "",
+              "| Scored by | AUC | Brier | Mean xG | ΔBrier vs zero-shot | p | ΔBrier vs map-only | p |",
+              "|---|---|---|---|---|---|---|---|"]
+        for k, v in q.items():
+            cells = []
+            for ref in (ZS, MAPK):
+                if k == ref:
+                    cells += ["", ""]
+                    continue
+                d = bb[k] - bb[ref]
+                cells += [fs(C.brier(y, v) - C.brier(y, q[ref]), *C.ci(d)), C.fmt_p(C.boot_p(d))]
+            L.append(f"| {k} | {f3(C.auc(y, v), *C.ci(ba[k]))} | {f3(C.brier(y, v), *C.ci(bb[k]))} | {v.mean():.3f} | "
+                     + " | ".join(cells) + " |")
+        head = header[mask]
+        close = np.asarray(pd.cut(tt.distance.values, C.BANDS, labels=C.BAND_LABELS)) == "6–12"
+        L += ["", "Mean xG at 6–12 yd by body part:", "",
+              "| Scored by | Headers (" + f"{(close & head).sum()}" + ") | Foot shots (" + f"{(close & ~head).sum()}" + ") |",
+              "|---|---|---|"]
+        for k, v in q.items():
+            L.append(f"| {k} | {v[close & head].mean():.3f} | {v[close & ~head].mean():.3f} |")
+        tm, tz = thinking(mfol), thinking(SAME_ENV_XG[lab])
+        measure[lab] = dict(n=len(ids), d=(C.brier(y, q[MF]) - C.brier(y, q[ZS]), *C.ci(bb[MF] - bb[ZS]),
+                                           C.boot_p(bb[MF] - bb[ZS])),
+                            dm=(C.brier(y, q[MF]) - C.brier(y, q[MAPK]), *C.ci(bb[MF] - bb[MAPK]),
+                                C.boot_p(bb[MF] - bb[MAPK])),
+                            auc=(C.auc(y, q[MF]), C.auc(y, q[ZS])), mean=(q[MF].mean(), q[ZS].mean()),
+                            close=(q[MF][close & head].mean(), q[MF][close & ~head].mean(),
+                                   q[ZS][close & head].mean(), q[ZS][close & ~head].mean()),
+                            think=(tm["mean"] if tm else np.nan, tz["mean"] if tz else np.nan),
+                            mae=np.abs(de).mean())
+        if tm:
+            L += ["", f"Thinking tokens per shot: {tm['mean']:,.0f}"
+                  + (f" (zero-shot xG request: {tz['mean']:,.0f})." if tz else ".")]
+
     L += ["", "## Reading", ""]
+    for lab, m in measure.items():
+        sig = "significant" if m["d"][1] > 0 or m["d"][2] < 0 else "not significant"
+        L.append(f"- Measure first ({lab}, {m['n']} shots): reading the geometry in the same request changes Brier by "
+                 f"{m['d'][0]:+.4f} [{m['d'][1]:+.4f}, {m['d'][2]:+.4f}] vs the zero-shot run ({sig}, p = "
+                 f"{C.fmt_p(m['d'][3])}); AUC {m['auc'][0]:.3f} vs {m['auc'][1]:.3f}; mean xG {m['mean'][0]:.3f} vs "
+                 f"{m['mean'][1]:.3f}. Against the map-only baseline: {m['dm'][0]:+.4f} [{m['dm'][1]:+.4f}, "
+                 f"{m['dm'][2]:+.4f}]. At 6–12 yd, headers {m['close'][2]:.3f} → {m['close'][0]:.3f}, foot shots "
+                 f"{m['close'][3]:.3f} → {m['close'][1]:.3f} (zero-shot → measure first). Thinking per shot "
+                 f"{m['think'][1]:,.0f} → {m['think'][0]:,.0f} tokens; distance read to {m['mae']:.2f} yd."
+                 .replace("+-", "−").replace("[-", "[−").replace(" -0", " −0"))
     for lab, s in summary.items():
         tot, perc, judg = s["tot"], s["perc"], s["judg"]
         sig = lambda q: "significant" if q[1] > 0 or q[2] < 0 else "not significant"
