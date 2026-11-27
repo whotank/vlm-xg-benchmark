@@ -1,0 +1,78 @@
+Data: StatsBomb open data, competition 43, season 106
+All non-penalty shots with freeze frames: 1430 (152 goals)
+VLM sample: 300 shots (42 goals), observed goal rate 0.140
+VLM: gemini/gemini-4-neon, zero-shot, context=image only
+Settings: thinking/reasoning level = medium; max output tokens = none; sampling = provider default
+Gemini: response_mime_type=application/json
+API usage, all invocations of this run: 300 calls, 0 failed, 0 accepted answers flagged incomplete; tokens: input 386700, cache writes 0, cached input 0, output 191519 (of which thinking 177869)
+Cost: $4.0329 at 3.0/15.0 USD per 1M input/output tokens (third-party (apidog.com, requesty.ai via web search; Google's pricing page unreachable here), 2026-11-27)
+
+model              AUC    Brier  LogLoss   MeanXG
+vlm_xg           0.720   0.1076   0.3717    0.100
+sb_xg            0.793   0.0989   0.3378    0.100
+baseline_xg      0.762   0.1070   0.3563    0.107
+
+Brier(VLM) - Brier(StatsBomb) = +0.0088  (95% shot-level bootstrap CI +0.0014 to +0.0168)
+Brier(VLM) - Brier(baseline)  = +0.0006  (95% shot-level bootstrap CI -0.0070 to +0.0088)
+(match-clustered intervals for all runs: results/main_table.md, from compare_models.py)
+Spearman rho, VLM vs StatsBomb xG: 0.839
+Mean gap (VLM - StatsBomb): +0.000; mean absolute gap: 0.047
+
+Disagreement by body_part:
+              n  goals    vlm  statsbomb  mean_gap
+body_part                                         
+Head         63      7  0.180      0.098     0.082
+Left Foot    93     15  0.066      0.086    -0.020
+Other         3      0  0.360      0.379    -0.019
+Right Foot  141     20  0.081      0.104    -0.023
+
+Disagreement by play_pattern:
+                  n  goals    vlm  statsbomb  mean_gap
+play_pattern                                          
+From Corner      52      5  0.107      0.100     0.007
+From Counter     10      3  0.201      0.235    -0.034
+From Free Kick   58      7  0.086      0.060     0.026
+From Goal Kick   18      5  0.082      0.085    -0.003
+From Keeper       3      0  0.100      0.140    -0.040
+From Kick Off     2      0  0.045      0.034     0.011
+From Throw In    55      6  0.085      0.076     0.009
+Regular Play    102     16  0.107      0.125    -0.018
+
+Disagreement by cone_bin:
+            n  goals    vlm  statsbomb  mean_gap
+cone_bin                                        
+0           8      5  0.304      0.489    -0.185
+1         137     26  0.136      0.133     0.003
+2         104      8  0.066      0.056     0.010
+3+         51      3  0.042      0.040     0.002
+
+Disagreement by dist_bin:
+           n  goals    vlm  statsbomb  mean_gap
+dist_bin                                       
+<6         8      4  0.378      0.480    -0.102
+6-12      77     14  0.194      0.168     0.026
+12-18     81     18  0.095      0.101    -0.007
+18-25     69      4  0.039      0.049    -0.010
+25+       65      2  0.027      0.024     0.003
+
+Largest VLM over-estimates:
+                             shot_id  goal  sb_xg  vlm_xg   gap body_part  distance  defenders_in_cone                                                                                                                                                                                                               vlm_reason
+661531f6-17c2-4898-a780-a61b4cbf95a9     0  0.213    0.42 0.207      Head     7.918                  1                     The shooter is centrally positioned right on the edge of the six-yard box with a clear path to goal, though the goalkeeper is well-positioned and a defender is applying close pressure from behind.
+79a770c1-3ec1-4ea5-b834-9a58ed3b3843     0  0.087    0.28 0.193      Head    12.650                  1                                                 Central shot from near the penalty spot with a clear lane to goal, though closely pressured by an adjacent defender and with the goalkeeper well-positioned on the line.
+96265fa7-2689-4ba5-bfe3-781c93b4ee60     1  0.235    0.42 0.185      Head     7.571                  1 The shot is taken from a prime central position right on the edge of the six-yard box with a clear path to goal, though close pressure from a defender and a well-positioned goalkeeper slightly reduce the probability.
+4d09313e-118e-459a-9ee8-01dc7a56f08f     0  0.106    0.28 0.174      Head    11.300                  1                  The shooter is centrally positioned near the penalty spot with a clear path to goal, though tight pressure from an adjacent defender and a well-positioned goalkeeper limit the conversion probability.
+f04052f9-712a-4992-a561-b3a46bb0d53b     0  0.108    0.28 0.172      Head     8.429                  1                                                                              Central shot from just outside the six-yard box with a good angle, but heavily pressured by an adjacent defender in a crowded penalty area.
+519a5012-c032-4962-bc66-7b72b7533891     0  0.080    0.25 0.170      Head    10.834                  1                                                       Close-range shot from inside the penalty area with a good angle, though heavily contested by an overlapping defender with the goalkeeper positioned near the line.
+b73e743c-d52b-41c7-b455-268e8938cbe9     0  0.078    0.24 0.162      Head     9.753                  1                                                      Central shot from about 9-10 yards with a clear lane to the goalkeeper, though tight pressure from nearby defenders in a crowded box lowers conversion probability.
+4c292e31-05ce-4f6f-a5d1-5e5d408b26e6     0  0.124    0.28 0.156      Head     6.912                  1                                                                                           Close-range central shot right on the six-yard line, but heavily contested in a crowded box with a well-positioned goalkeeper.
+
+Largest VLM under-estimates:
+                             shot_id  goal  sb_xg  vlm_xg    gap  body_part  distance  defenders_in_cone                                                                                                                                                                                                                 vlm_reason
+2b86a444-5696-4c2d-ba7f-837ec9756684     1  0.669    0.15 -0.519 Right Foot     4.780                  0                                                      The shooter is very close to the goal from a corner kick, but the extremely tight angle near the byline and crowded six-yard box significantly limit the target area.
+4b8db9ec-fbb1-485b-b348-d8bb3aecbf07     1  0.779    0.45 -0.329 Right Foot     9.534                  0                                                    Central shot from about 10 yards with an open lane to the right side of the goal as the goalkeeper is shifted left, though under close pressure from a nearby defender.
+70fe857d-6f28-4b38-8ad7-a655328ec176     1  0.727    0.42 -0.307 Right Foot     6.401                  1                                                                                    Close-range shot from the edge of the six-yard box with an unobstructed path to goal and the goalkeeper positioned slightly off-center.
+be17203f-f93a-4a28-9704-0d0783b29be2     1  0.897    0.62 -0.277 Right Foot     6.403                  0                               The shooter is centrally positioned right on the six-yard line with the goalkeeper completely out of position to the right, leaving most of the goal open despite nearby defensive pressure.
+37c91977-3d8e-42a7-8368-806c40c8e9fc     1  0.509    0.24 -0.269  Left Foot     6.083                  1 The shot is taken from very close range on the edge of the six-yard box, but the tight angle near the post, heavy defender pressure, and the goalkeeper directly in front significantly reduce the conversion probability.
+eb01f465-08f6-4adf-a1b8-865127b41a97     1  0.408    0.15 -0.258  Left Foot    12.860                  1                                                    The shooter is close to goal at a moderate angle, but the goalkeeper is well-positioned to close down the space and a nearby defender blocks part of the shooting lane.
+d53ccaf1-0307-4067-946b-d514978dfae2     1  0.791    0.55 -0.241 Right Foot     4.428                  0                                                  The shooter is centrally positioned just a few yards from the goal inside the six-yard box, though the goalkeeper is immediately in front attempting to smother the shot.
+ed57db75-dfc9-4bf5-8f72-c85a80bb9829     0  0.455    0.22 -0.235  Left Foot     6.824                  1                                     The shot is taken from very close range on the edge of the six-yard box, but heavy defensive congestion and a well-positioned goalkeeper significantly reduce the scoring probability.
