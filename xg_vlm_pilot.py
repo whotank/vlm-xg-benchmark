@@ -163,12 +163,40 @@ def load_shots_cached(comp, season, refresh=False):
     return shots
 
 
-def add_baseline(shots):
+BASELINE_FOLDS = os.path.join(RESULTS, "baseline_folds.json")
+
+
+def legacy_group_folds(groups, n_splits=5):
+    """GroupKFold as implemented before scikit-learn 1.6: groups sorted by size with numpy's default
+    (unstable) argsort, largest first, each assigned to the currently lightest fold. Newer scikit-learn
+    assigns folds differently, which silently changes the baseline; results/baseline_folds.json freezes
+    the assignment used for the published runs."""
+    uniq, inv = np.unique(groups, return_inverse=True)
+    n_per = np.bincount(inv)
+    order = np.argsort(n_per)[::-1]
+    load, g2f = np.zeros(n_splits), np.zeros(len(uniq), int)
+    for gi in order:
+        f = int(np.argmin(load))
+        load[f] += n_per[gi]
+        g2f[gi] = f
+    return dict(zip(uniq.tolist(), g2f.tolist()))
+
+
+def add_baseline(shots, comp=43, season=106, n_splits=5):
     """Transparent baseline, out-of-fold predictions grouped by match (no leakage)."""
     feats = ["distance", "angle", "header", "defenders_in_cone"]
+    m2f = None
+    if os.path.exists(BASELINE_FOLDS):
+        with open(BASELINE_FOLDS) as f:
+            spec = json.load(f)
+        if spec["comp"] == comp and spec["season"] == season and spec["n_splits"] == n_splits:
+            m2f = {int(k): v for k, v in spec["folds"].items()}
+    if m2f is None or not set(shots.match_id) <= set(m2f):
+        m2f = legacy_group_folds(shots.match_id.values, n_splits)
+    fold = shots.match_id.map(m2f).values
+    cv = [(np.flatnonzero(fold != k), np.flatnonzero(fold == k)) for k in range(n_splits)]
     shots["baseline_xg"] = cross_val_predict(
-        LogisticRegression(max_iter=1000), shots[feats], shots.goal,
-        groups=shots.match_id, cv=GroupKFold(n_splits=5), method="predict_proba")[:, 1]
+        LogisticRegression(max_iter=1000), shots[feats], shots.goal, cv=cv, method="predict_proba")[:, 1]
     return shots
 
 
@@ -746,7 +774,7 @@ def main():
         sys.exit(f"another process is already running {slug}")
 
     print("Loading StatsBomb shots...")
-    shots = add_baseline(load_shots_cached(a.comp, a.season, a.refresh_data))
+    shots = add_baseline(load_shots_cached(a.comp, a.season, a.refresh_data), a.comp, a.season)
     print(f"{len(shots)} non-penalty shots with freeze frames, {shots.goal.sum()} goals")
     sample = shots.sample(n=min(a.n, len(shots)), random_state=a.seed).copy()
 

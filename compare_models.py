@@ -21,12 +21,13 @@ Run after xg_vlm_pilot.py has produced results/<run>/shots.csv for each run:
   python compare_models.py              # tables only
   python compare_models.py --figures    # also redraw the figures
 """
-import os, argparse
+import os, json, argparse
 import numpy as np
 import pandas as pd
 from scipy.stats import rankdata
 
 RES = "results"
+MIN_N = 300            # a run counts only after an invocation over the full 300-shot sample
 N_BOOT, BOOT_SEED = 2000, 0
 BANDS = [0, 6, 12, 18, 25, 200]
 BAND_LABELS = ["<6", "6–12", "12–18", "18–25", "25+"]
@@ -129,17 +130,29 @@ def fmt_p(p):
 
 
 # ---------------------------------------------------------------- loading
+def finished(fol):
+    """A run counts once its latest invocation covered the full sample and ended complete or partial
+    (a few shots unanswered). Runs in progress, stopped, or tested on a handful of shots are skipped.
+    Folders from before run_config.json existed (the four original runs) always count."""
+    path = os.path.join(RES, fol, "run_config.json")
+    if not os.path.exists(path):
+        return True
+    with open(path) as f:
+        last = json.load(f)["invocations"][-1]
+    return last.get("n", 0) >= MIN_N and str(last.get("status", "")).startswith(("complete", "partial"))
+
+
 def load_runs(verbose=True):
     runs, missing = [], []
     for lab, fol, grp in registry():
         path = os.path.join(RES, fol, "shots.csv")
-        if os.path.exists(path):
+        if os.path.exists(path) and finished(fol):
             df = pd.read_csv(path).set_index("shot_id")
             runs.append((lab, fol, grp, df))
         elif os.path.isdir(os.path.join(RES, fol)):
             missing.append(fol)
     if verbose and missing:
-        print(f"Skipped (folder exists but no shots.csv yet): {', '.join(missing)}")
+        print(f"Skipped (not finished on the full sample yet): {', '.join(missing)}")
     return runs
 
 

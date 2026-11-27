@@ -7,27 +7,28 @@ For every run that compare_models.py picks up (same common shots), plus StatsBom
 baseline as reference rows:
   - Platt scaling: unpenalised logistic regression of goal on logit(p)
   - Isotonic regression: monotone, non-decreasing step function of p
-Both are fitted with 5-fold cross-validation grouped by match_id (sklearn GroupKFold, no shuffling), so
-each shot is recalibrated by a map that never saw its match. The out-of-fold predictions are scored
+Both are fitted with 5-fold cross-validation grouped by match_id, so each shot is recalibrated by a map
+that never saw its match. The folds are the logistic baseline's frozen match-to-fold assignment
+(results/baseline_folds.json), so the split does not depend on the scikit-learn version. The out-of-fold predictions are scored
 with Brier and log loss; 95% intervals come from the same match-clustered bootstrap as compare_models.py
 (2,000 resamples of matches, seed 0), including paired (recalibrated - raw) differences.
 
 Caveats written into the report:
   - The bootstrap resamples the out-of-fold predictions; it does not refit the maps, so intervals cover
     evaluation-set sampling, not fitting variability. A second table repeats the whole procedure over
-    50 random grouped 5-fold splits to show how much the fold assignment alone moves the result.
+    50 random grouped 5-fold splits (seeded permutations of matches) to show how much the fold
+    assignment alone moves the result.
   - With 42 goals, each training fold has ~34 goals, so even a well-calibrated model (StatsBomb) can get
     slightly worse after recalibration. The StatsBomb and baseline rows show the size of that effect.
 
 Outputs: results/recalibration.md, results/recalibration.csv
 Run: python recalibrate.py
 """
-import os
+import os, json
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.isotonic import IsotonicRegression
-from sklearn.model_selection import GroupKFold
 import compare_models as C
 
 EPS = 1e-3
@@ -51,9 +52,26 @@ def fit_iso(p, y):
     return IsotonicRegression(y_min=0, y_max=1, increasing=True, out_of_bounds="clip").fit(p, y)
 
 
-def oof(p, y, groups, method, splitter):
+class MatchFolds:
+    """Grouped K-fold from the frozen match -> fold map (seed=None) or a seeded permutation of matches."""
+    def __init__(self, groups, seed=None, n_splits=N_SPLITS):
+        if seed is None:
+            with open(os.path.join(C.RES, "baseline_folds.json")) as f:
+                m2f = {int(k): v for k, v in json.load(f)["folds"].items()}
+        else:
+            uniq = np.random.default_rng(seed).permutation(np.unique(groups))
+            m2f = {int(m): i % n_splits for i, m in enumerate(uniq)}
+        self.fold = np.array([m2f[int(g)] for g in groups])
+        self.n_splits = n_splits
+
+    def split(self):
+        for k in range(self.n_splits):
+            yield np.flatnonzero(self.fold != k), np.flatnonzero(self.fold == k)
+
+
+def oof(p, y, folds, method):
     out = np.empty_like(p, dtype=float)
-    for tr, te in splitter.split(p, y, groups):
+    for tr, te in folds.split():
         if method == "platt":
             out[te] = platt_predict(fit_platt(p[tr], y[tr]), p[te])
         else:
@@ -72,9 +90,8 @@ def main():
 
     rows = []
     for m, p in preds.items():
-        variants = {"raw": p,
-                    "platt": oof(p, y, g, "platt", GroupKFold(n_splits=N_SPLITS)),
-                    "isotonic": oof(p, y, g, "isotonic", GroupKFold(n_splits=N_SPLITS))}
+        fixed = MatchFolds(g)
+        variants = {"raw": p, "platt": oof(p, y, fixed, "platt"), "isotonic": oof(p, y, fixed, "isotonic")}
         boots = {v: {k: np.array([C.METRICS[k](y[ix], q[ix]) for ix in idxs]) for k in ("brier", "logloss")}
                  for v, q in variants.items()}
         full = fit_platt(p, y)
@@ -92,8 +109,7 @@ def main():
                     r[f"d{k}_{v}_p"] = C.boot_p(d)
         # sensitivity: repeat the grouped CV over random fold assignments
         for v in ("platt", "isotonic"):
-            reps = [C.brier(y, oof(p, y, g, v, GroupKFold(n_splits=N_SPLITS, shuffle=True, random_state=s)))
-                    for s in range(N_REPEATS)]
+            reps = [C.brier(y, oof(p, y, MatchFolds(g, seed=s), v)) for s in range(N_REPEATS)]
             r[f"brier_{v}_rep_mean"] = float(np.mean(reps))
             r[f"brier_{v}_rep_lo"], r[f"brier_{v}_rep_hi"] = np.percentile(reps, [2.5, 97.5])
         rows.append(r)
@@ -111,8 +127,8 @@ def main():
          "Main results stay raw (zero-shot); this table shows what a monotone recalibration learned from labelled "
          "shots would change.", "",
          "Method: Platt scaling (unpenalised logistic regression of goal on logit p) and isotonic regression, each "
-         f"fitted with {N_SPLITS}-fold cross-validation grouped by match (GroupKFold), so every shot is recalibrated "
-         "by a map that never saw its match. Brackets: 95% match-clustered bootstrap intervals (2,000 resamples of "
+         f"fitted with {N_SPLITS}-fold cross-validation grouped by match (the baseline's frozen match folds, "
+         "results/baseline_folds.json), so every shot is recalibrated by a map that never saw its match. Brackets: 95% match-clustered bootstrap intervals (2,000 resamples of "
          "matches, seed 0) of the out-of-fold scores; Δ = recalibrated − raw (negative = recalibration helps), "
          "p = two-sided bootstrap p-value for Δ = 0. The bootstrap does not refit the maps, so the intervals cover "
          "evaluation sampling only; the last table shows the spread over random fold assignments.", "",
@@ -144,8 +160,8 @@ def main():
         L.append(f"| {r.model} | {r.platt_intercept:+.2f} | {r.platt_slope:.2f} | {r.mean_xg_raw:.3f} | "
                  f"{r.mean_xg_platt:.3f} | {r.mean_xg_isotonic:.3f} |".replace("-", "−"))
     L += ["", f"## Sensitivity to the fold assignment ({N_REPEATS} random grouped {N_SPLITS}-fold splits)", "",
-          "Brier after recalibration: value with the fixed GroupKFold split used above, then the mean and the "
-          f"2.5–97.5% range over {N_REPEATS} random grouped splits (match-level shuffles).", "",
+          "Brier after recalibration: value with the fixed match folds used above, then the mean and the "
+          f"2.5–97.5% range over {N_REPEATS} random grouped splits (seeded permutations of matches).", "",
           "| Model | Raw | Platt (fixed split) | Platt over splits | Isotonic (fixed split) | Isotonic over splits |",
           "|---|---|---|---|---|---|"]
     for _, r in df.iterrows():
