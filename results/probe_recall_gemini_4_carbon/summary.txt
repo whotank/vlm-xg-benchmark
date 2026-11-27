@@ -1,0 +1,8 @@
+Task: recall (probe: recall the shot from match, clock and player (text only))
+Model: gemini/gemini-4-carbon; thinking/reasoning level: medium; max output tokens: none
+Sample: results/probe_sample.json (84 shots); answered 84 of 84
+API usage: 84 calls, 0 failed; cost $0.306
+
+Claimed to remember the shot: goals 42/42, non-goals 24/42
+'scored' = yes: goals 1.00, non-goals 0.00; 'unknown': 0.00
+Mean p_goal: goals 0.984, non-goals 0.003; mean xg: goals 0.271, non-goals 0.098 (StatsBomb 0.250 / 0.077)
