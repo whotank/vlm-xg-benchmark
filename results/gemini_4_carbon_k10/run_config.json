@@ -1,0 +1,47 @@
+{
+ "backend": "gemini",
+ "model": "gemini-4-carbon",
+ "shots": 10,
+ "example_set": "A",
+ "example_ids": [
+  "6d498191-05f0-432c-8764-03aea4ef9fb8",
+  "c56eba74-325b-4086-96fd-4e71009b673a",
+  "72e972ee-22e9-4eef-aaa9-04ebd7e55f92",
+  "092b9d73-6f23-477b-8896-81d04cff79a6",
+  "f36222e4-425a-4b60-90ce-ee0563d3a95d",
+  "61f19d48-a4a3-42f3-b777-0c87f7da2c47",
+  "48487024-2b14-4521-a46b-508418babbad",
+  "38d1ccce-102b-41a6-9661-a4f872c615e3",
+  "e4138641-20ea-47fb-8f63-4faea5b02279",
+  "7ce22041-277e-47f1-8a76-cdd4afc35782"
+ ],
+ "example_seed": 1,
+ "context": false,
+ "thinking_level": "medium",
+ "max_output_tokens": "none",
+ "seed": 7,
+ "comp": 43,
+ "season": 106,
+ "prompt_sha": "f92fad0bd68f",
+ "invocations": [
+  {
+   "started": "2026-11-27T07:34:55+00:00",
+   "n": 300,
+   "workers": 6,
+   "stage": "4: few-shot set A",
+   "versions": {
+    "anthropic": "2.14.0",
+    "google-genai": "3.6.1",
+    "openai": "3.60.0",
+    "matplotlib": "3.11.2",
+    "mplsoccer": "1.8.1",
+    "statsbombpy": "1.22.0"
+   },
+   "finished": "2026-11-27T07:58:32+00:00",
+   "status": "complete",
+   "elapsed_s": 1416
+  }
+ ],
+ "stage": "4: few-shot set A",
+ "n": 300
+}
