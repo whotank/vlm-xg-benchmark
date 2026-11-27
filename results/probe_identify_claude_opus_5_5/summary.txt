@@ -1,0 +1,8 @@
+Task: identify (probe: identify the match from the image)
+Model: anthropic/claude-opus-5-5; thinking/reasoning level: not set; max output tokens: 1500
+Sample: results/probe_sample.json (84 shots); answered 84 of 84
+API usage: 84 calls, 0 failed; cost $0.3454
+
+Claimed to recognise the shot: 0 of 84
+Mean confidence: 0.01
+Best-guess competitions: unknown (84)

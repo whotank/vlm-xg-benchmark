@@ -1,0 +1,33 @@
+{
+ "task": "identify",
+ "backend": "anthropic",
+ "model": "claude-opus-5-5",
+ "thinking_level": null,
+ "max_output_tokens": 1500,
+ "sample": "results/probe_sample.json",
+ "shots": 0,
+ "context": "probe: identify the match from the image",
+ "prompt_sha": "a492367d89cf",
+ "invocations": [
+  {
+   "started": "2026-11-27T22:17:29+00:00",
+   "n": 2,
+   "workers": 2,
+   "stage": "probe: contamination",
+   "finished": "2026-11-27T22:17:32+00:00",
+   "status": "complete",
+   "elapsed_s": 3
+  },
+  {
+   "started": "2026-11-27T22:26:12+00:00",
+   "n": 84,
+   "workers": 4,
+   "stage": "probe: contamination",
+   "finished": "2026-11-27T22:26:38+00:00",
+   "status": "complete",
+   "elapsed_s": 25
+  }
+ ],
+ "stage": "probe: contamination",
+ "n": 84
+}
