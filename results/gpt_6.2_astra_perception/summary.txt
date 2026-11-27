@@ -1,0 +1,8 @@
+Task: perception (perception: read distance, angle, opponents in triangle from the image)
+Model: openai/gpt-6.2-astra; thinking/reasoning level: medium; max output tokens: none
+Sample: the xG runs' 300-shot sample (random_state=7); answered 300 of 300
+API usage: 300 calls, 0 failed; cost $3.9398
+
+Distance read - true: mean -0.00 yd, mean absolute 0.07 yd
+Angle read - true: mean +0.0 deg, mean absolute 0.2 deg
+Opponents in triangle: exact 0.91, mean read - true +0.02
