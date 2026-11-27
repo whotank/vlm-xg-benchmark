@@ -1,0 +1,33 @@
+{
+ "task": "recall",
+ "backend": "anthropic",
+ "model": "claude-opus-5-5",
+ "thinking_level": null,
+ "max_output_tokens": 1500,
+ "sample": "results/probe_sample.json",
+ "shots": 0,
+ "context": "probe: recall the shot from match, clock and player (text only)",
+ "prompt_sha": "0a99dc002850",
+ "invocations": [
+  {
+   "started": "2026-11-27T22:17:00+00:00",
+   "n": 2,
+   "workers": 2,
+   "stage": "probe: contamination",
+   "finished": "2026-11-27T22:17:06+00:00",
+   "status": "complete",
+   "elapsed_s": 6
+  },
+  {
+   "started": "2026-11-27T22:25:10+00:00",
+   "n": 84,
+   "workers": 4,
+   "stage": "probe: contamination",
+   "finished": "2026-11-27T22:26:08+00:00",
+   "status": "complete",
+   "elapsed_s": 58
+  }
+ ],
+ "stage": "probe: contamination",
+ "n": 84
+}
